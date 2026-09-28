@@ -1,0 +1,13 @@
+## Build and output directories
+bin/
+obj/
+publish/
+
+## Visual Studio / VS Code / IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+## Screen Time Tracker data logs (keeps default config.json)
+registros/screen_time_*.json

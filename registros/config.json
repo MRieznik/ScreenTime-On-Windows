@@ -1,0 +1,31 @@
+{
+  "TrackingIntervalSeconds": 5,
+  "GameDirectories": [
+    "C:\\Program Files (x86)\\Steam\\steamapps\\common",
+    "D:\\Juegos\\BattleNet",
+    "D:\\Juegos\\Epic",
+    "D:\\Juegos\\Hytale",
+    "D:\\Juegos\\SteamLibrary\\steamapps\\common"
+  ],
+  "GameExecutables": [
+    "overwatch.exe",
+    "hl2.exe",
+    "cs2.exe",
+    "valorant.exe",
+    "valorant-win64-shipping.exe",
+    "league of legends.exe",
+    "fortniteclient-win64-shipping.exe",
+    "minecraft.exe",
+    "javaw.exe",
+    "eldenring.exe"
+  ],
+  "IgnoredLaunchers": [
+    "steam.exe",
+    "steamwebhelper.exe",
+    "epicgameslauncher.exe",
+    "battle.net.exe",
+    "riotclientservices.exe",
+    "galaxyclient.exe",
+    "upc.exe"
+  ]
+}
