@@ -10,6 +10,9 @@
     <RootNamespace>ScreenTimeTracker</RootNamespace>
     <AssemblyName>ScreenTimeTracker</AssemblyName>
     <ApplicationIcon>Assets\app_icon.ico</ApplicationIcon>
+    <Authors>Marcos Rieznik</Authors>
+    <Copyright>Copyright © 2026 Marcos Rieznik</Copyright>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
