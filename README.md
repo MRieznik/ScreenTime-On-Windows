@@ -55,3 +55,8 @@ El archivo ejecutable se creará en `publish/portable/ScreenTimeTracker.exe`.
 - **ViewModels**: Lógica de presentación y comandos bajo el patrón MVVM.
 - **Assets**: Recursos visuales e iconos de la aplicación.
 - **registros**: Directorio local donde se almacenan las configuraciones y los archivos JSON diarios.
+
+## Licencia
+
+Este proyecto está bajo la Licencia Pública General de GNU v3.0 (GNU GPLv3). Consulta el archivo [LICENSE](file:///c:/Users/Marcos/Desktop/Time%20Screen/LICENSE) para más detalles.
+
