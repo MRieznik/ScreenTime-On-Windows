@@ -15,7 +15,8 @@ Screen Time Tracker monitorea la ventana activa en primer plano a intervalos reg
 - **Historial y estadísticas**:
   - Vista diaria detallada con desglose por aplicación o sitio.
   - Navegación entre fechas para consultar registros históricos.
-  - Gráfico semanal interactivo (de lunes a domingo) para visualizar tendencias.
+  - **Dashboard Semanal avanzado**: Gráfico interactivo, visualización de tendencias comparativas (ej. un X% más que la semana pasada), día pico de uso y ranking Top 3 de aplicaciones más usadas por categoría.
+- **Interfaz moderna y Responsive**: Diseño UI con efectos visuales dinámicos que se adapta limpiamente al reducir el tamaño de la ventana.
 - **Persistencia local en JSON**: Guarda los registros diarios y la configuración en la carpeta `registros/` en formato JSON, garantizando privacidad total sin dependencias de servicios externos ni telemetría.
 - **Configuración personalizada**: Permite gestionar las rutas de bibliotecas de juegos y ajustar los parámetros de monitoreo desde la interfaz o editando el archivo de configuración.
 
@@ -46,7 +47,9 @@ Para generar un binario único que no requiera tener .NET instalado en el equipo
 ```powershell
 dotnet publish -c Release -o "./publish/portable"
 ```
-El archivo ejecutable se creará en `publish/portable/ScreenTimeTracker.exe`.
+El archivo ejecutable se creará en `publish/portable/ScreenTimeTracker.exe`. 
+
+**Nota sobre datos locales:** Al ser una versión portátil, la aplicación siempre creará y leerá sus datos en una carpeta llamada `registros` ubicada exactamente en el mismo directorio donde coloques el `.exe`. Si trasladas la aplicación a otro PC o carpeta, asegúrate de copiar la carpeta `registros` junto a ella para conservar tu historial.
 
 ## Estructura del Proyecto
 
