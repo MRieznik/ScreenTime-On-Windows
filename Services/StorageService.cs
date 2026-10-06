@@ -23,7 +23,20 @@ public class StorageService
     public StorageService()
     {
         // 1. Intentar usar la carpeta 'registros' dentro del directorio base de instalación / ejecutable
-        string preferredDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "registros");
+        string baseDir = AppContext.BaseDirectory;
+        if (string.IsNullOrEmpty(baseDir) || baseDir.Contains("Temp") || baseDir.Contains("temp"))
+        {
+            var mainModule = Process.GetCurrentProcess().MainModule;
+            if (mainModule != null)
+            {
+                baseDir = Path.GetDirectoryName(mainModule.FileName) ?? AppDomain.CurrentDomain.BaseDirectory;
+            }
+            else
+            {
+                baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            }
+        }
+        string preferredDir = Path.Combine(baseDir, "registros");
         try
         {
             if (!Directory.Exists(preferredDir))

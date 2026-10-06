@@ -16,6 +16,21 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+        
+        <Style x:Key="HoverCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BrushCardBg}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushCardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="22,20"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1A1A1E"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="36,28,36,28">
@@ -99,6 +114,14 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Weekly Summary Button -->
+                <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenChartCommand}" CommandParameter="Total" Margin="0,0,12,0" ToolTip="Ver reporte y gráfico de toda la semana">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="📊" Margin="0,0,6,0" FontSize="13" VerticalAlignment="Center"/>
+                        <TextBlock Text="Resumen Semanal" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
                 <!-- Settings Button (Flat Geometric) -->
                 <Button Style="{StaticResource ModernButtonStyle}" Command="{Binding ToggleSettingsCommand}">
                     <StackPanel Orientation="Horizontal">
@@ -146,7 +169,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Card 0: Total General -->
-            <Border Grid.Column="0" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="22,20" Cursor="Hand" ToolTip="Haz clic para ver el gráfico semanal de tiempo total (Lun - Dom)">
+            <Border Grid.Column="0" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de tiempo total (Lun - Dom)">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Total"/>
                 </Border.InputBindings>
@@ -161,7 +184,7 @@
             </Border>
 
             <!-- Card 1: Juegos -->
-            <Border Grid.Column="2" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="22,20" Cursor="Hand" ToolTip="Haz clic para ver el gráfico semanal de Juegos (Lun - Dom)">
+            <Border Grid.Column="2" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de Juegos (Lun - Dom)">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Juegos"/>
                 </Border.InputBindings>
@@ -180,7 +203,7 @@
             </Border>
 
             <!-- Card 2: Apps de Escritorio -->
-            <Border Grid.Column="4" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="22,20" Cursor="Hand" ToolTip="Haz clic para ver el gráfico semanal de Escritorio (Lun - Dom)">
+            <Border Grid.Column="4" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de Escritorio (Lun - Dom)">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Aplicaciones de Escritorio"/>
                 </Border.InputBindings>
@@ -199,7 +222,7 @@
             </Border>
 
             <!-- Card 3: Navegación Web -->
-            <Border Grid.Column="6" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="22,20" Cursor="Hand" ToolTip="Haz clic para ver el gráfico semanal de Navegación Web (Lun - Dom)">
+            <Border Grid.Column="6" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de Navegación Web (Lun - Dom)">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Navegación Web"/>
                 </Border.InputBindings>
@@ -744,67 +767,101 @@
                         </Border>
                     </Grid>
 
-                    <!-- Bar Chart Area (Flat Pillars, CornerRadius=0) -->
-                    <Border Grid.Row="4" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="24,24,24,18" Margin="0,0,0,22">
-                        <ItemsControl ItemsSource="{Binding WeekBars}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Rows="1" Columns="7"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="8,0" VerticalAlignment="Bottom" Cursor="Hand" ToolTip="Haz clic para ver el desglose detallado de este día">
-                                        <Grid.InputBindings>
-                                            <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.SelectDayFromChartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
-                                        </Grid.InputBindings>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="190"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
+                    <!-- Bar Chart & Highlights Area -->
+                    <Grid Grid.Row="4" Margin="0,0,0,22">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="260"/>
+                        </Grid.ColumnDefinitions>
 
-                                        <!-- Value on top of bar -->
-                                        <Border Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,8"
-                                                Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,3">
-                                            <TextBlock Text="{Binding HoursLabel}" FontSize="12" FontWeight="Bold"
-                                                       Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center"
-                                                       ToolTip="{Binding FormattedTime}"/>
-                                        </Border>
+                        <!-- Bar Chart Area (Flat Pillars, CornerRadius=0) -->
+                        <Border Grid.Column="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="24,24,24,18">
+                            <ItemsControl ItemsSource="{Binding WeekBars}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1" Columns="7"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="8,0" VerticalAlignment="Bottom" Cursor="Hand" ToolTip="Haz clic para ver el desglose detallado de este día">
+                                            <Grid.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.SelectDayFromChartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                            </Grid.InputBindings>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="190"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
 
-                                        <!-- The Vertical Bar Container (Flat, CornerRadius=0) -->
-                                        <Grid Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                            <!-- Baseline empty background pillar -->
-                                            <Border Width="52" Height="190" Background="#1E1E24" CornerRadius="0"/>
-
-                                            <!-- Filled Bar (Turquoise Accent) -->
-                                            <Border Width="52"
-                                                    Height="{Binding BarHeight}"
-                                                    Background="{StaticResource BrushAccent}"
-                                                    CornerRadius="0"
-                                                    VerticalAlignment="Bottom"
-                                                    ToolTip="{Binding FormattedTime}"/>
-                                        </Grid>
-
-                                        <!-- Day Labels on Bottom -->
-                                        <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,10,0,0">
-                                            <TextBlock Text="{Binding DayShort}" FontSize="13" FontWeight="Bold"
-                                                       Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="{Binding DateString}" FontSize="10"
-                                                       Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-
-                                            <!-- TODAY Badge (Flat) -->
-                                            <Border Background="{StaticResource BrushAccent}" CornerRadius="0" Padding="6,2" Margin="0,4,0,0"
-                                                    HorizontalAlignment="Center"
-                                                    Visibility="{Binding IsToday, Converter={StaticResource BoolToVisConverter}}">
-                                                <TextBlock Text="HOY" FontSize="9" FontWeight="Bold" Foreground="#121214"/>
+                                            <!-- Value on top of bar -->
+                                            <Border Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,8"
+                                                    Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,3">
+                                                <TextBlock Text="{Binding HoursLabel}" FontSize="12" FontWeight="Bold"
+                                                           Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center"
+                                                           ToolTip="{Binding FormattedTime}"/>
                                             </Border>
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Border>
+
+                                            <!-- The Vertical Bar Container (Flat, CornerRadius=0) -->
+                                            <Grid Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center">
+                                                <!-- Baseline empty background pillar -->
+                                                <Border Width="52" Height="190" Background="#1E1E24" CornerRadius="0"/>
+
+                                                <!-- Filled Bar (Turquoise Accent) -->
+                                                <Border Width="52"
+                                                        Height="{Binding BarHeight}"
+                                                        Background="{StaticResource BrushAccent}"
+                                                        CornerRadius="0"
+                                                        VerticalAlignment="Bottom"
+                                                        ToolTip="{Binding FormattedTime}"/>
+                                            </Grid>
+
+                                            <!-- Day Labels on Bottom -->
+                                            <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                                <TextBlock Text="{Binding DayShort}" FontSize="13" FontWeight="Bold"
+                                                           Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding DateString}" FontSize="10"
+                                                           Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+
+                                                <!-- TODAY Badge (Flat) -->
+                                                <Border Background="{StaticResource BrushAccent}" CornerRadius="0" Padding="6,2" Margin="0,4,0,0"
+                                                        HorizontalAlignment="Center"
+                                                        Visibility="{Binding IsToday, Converter={StaticResource BoolToVisConverter}}">
+                                                    <TextBlock Text="HOY" FontSize="9" FontWeight="Bold" Foreground="#121214"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <!-- Highlights Area -->
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="20"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Trend -->
+                            <Border Grid.Row="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
+                                <StackPanel>
+                                    <TextBlock Text="TENDENCIA SEMANAL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                    <TextBlock Text="{Binding WeekTrendFormatted}" FontSize="15" FontWeight="Bold" Foreground="{Binding WeekTrendColor}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Top Apps -->
+                            <Border Grid.Row="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
+                                <StackPanel>
+                                    <TextBlock Text="TOP 3 APLICACIONES" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                    <TextBlock Text="{Binding WeekTopAppsFormatted}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,0" LineHeight="24"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
 
                     <!-- Footer -->
                     <Button Grid.Row="5" Style="{StaticResource ModernButtonStyle}" Content="Cerrar" HorizontalAlignment="Right" Command="{Binding CloseChartCommand}" Width="100"/>

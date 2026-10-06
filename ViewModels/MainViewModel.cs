@@ -96,6 +96,9 @@ public class MainViewModel : ViewModelBase
     private string _weekTotalFormatted = "00m 00s";
     private string _weekAverageFormatted = "00m 00s / día";
     private string _weekPeakDay = "Sin actividad";
+    private string _weekTopAppsFormatted = "Sin datos suficientes";
+    private string _weekTrendFormatted = "-";
+    private string _weekTrendColor = "#9CA3AF";
 
     public bool CanGoToNextWeek
     {
@@ -207,6 +210,24 @@ public class MainViewModel : ViewModelBase
     {
         get => _weekPeakDay;
         set => SetField(ref _weekPeakDay, value);
+    }
+
+    public string WeekTopAppsFormatted
+    {
+        get => _weekTopAppsFormatted;
+        set => SetField(ref _weekTopAppsFormatted, value);
+    }
+
+    public string WeekTrendFormatted
+    {
+        get => _weekTrendFormatted;
+        set => SetField(ref _weekTrendFormatted, value);
+    }
+
+    public string WeekTrendColor
+    {
+        get => _weekTrendColor;
+        set => SetField(ref _weekTrendColor, value);
     }
 
     public bool HasNoActivities
@@ -836,6 +857,77 @@ public class MainViewModel : ViewModelBase
         }
 
         WeekPeakDay = peakDayName;
+
+        // Tendencia vs semana pasada
+        var previousWeekDates = StorageService.GetWeekDates(_chartReferenceDate.AddDays(-7));
+        var previousWeekData = await _storageService.LoadWeekDataAsync(_chartReferenceDate.AddDays(-7));
+        int prevWeekTotalSec = 0;
+        foreach (var d in previousWeekDates)
+        {
+            if (previousWeekData.TryGetValue(d.ToString("yyyy-MM-dd"), out var daily))
+            {
+                prevWeekTotalSec += SelectedChartCategory switch
+                {
+                    "Juegos" => daily.TotalGamingSeconds,
+                    "Aplicaciones de Escritorio" => daily.TotalDesktopSeconds,
+                    "Navegación Web" or "Navegación Web (Edge)" => daily.TotalWebSeconds,
+                    _ => daily.TotalSeconds
+                };
+            }
+        }
+
+        if (prevWeekTotalSec > 0)
+        {
+            double diff = totalWeekSec - prevWeekTotalSec;
+            double pct = (diff / prevWeekTotalSec) * 100;
+            if (pct > 0)
+            {
+                WeekTrendFormatted = $"▲ {pct:F1}% más que sem. pasada";
+                WeekTrendColor = "#EF4444"; // Rojo (más tiempo)
+            }
+            else
+            {
+                WeekTrendFormatted = $"▼ {Math.Abs(pct):F1}% menos que sem. pasada";
+                WeekTrendColor = "#10B981"; // Verde (menos tiempo)
+            }
+        }
+        else
+        {
+            WeekTrendFormatted = "Sin datos semana previa";
+            WeekTrendColor = "#9CA3AF";
+        }
+
+        // Top 3 Apps
+        var allActivities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dateStr in weekData.Keys)
+        {
+            var daily = weekData[dateStr];
+            foreach (var act in daily.Activities.Values)
+            {
+                bool match = false;
+                if (SelectedChartCategory == "Total" || SelectedChartCategory == "Todo") match = true;
+                else if (SelectedChartCategory == "Navegación Web" && (act.Category == "Navegación Web" || act.Category == "Navegación Web (Edge)")) match = true;
+                else if (act.Category == SelectedChartCategory) match = true;
+
+                if (match)
+                {
+                    string key = string.IsNullOrWhiteSpace(act.Detail) ? act.ProcessName : act.Detail;
+                    if (!allActivities.ContainsKey(key)) allActivities[key] = 0;
+                    allActivities[key] += act.SecondsSpent;
+                }
+            }
+        }
+
+        var top3 = allActivities.OrderByDescending(kv => kv.Value).Take(3).ToList();
+        if (top3.Any())
+        {
+            var lines = top3.Select((kv, index) => $"{index + 1}. {kv.Key} ({DailyTrackingData.FormatSeconds(kv.Value)})");
+            WeekTopAppsFormatted = string.Join("\n", lines);
+        }
+        else
+        {
+            WeekTopAppsFormatted = "Sin actividad destacada";
+        }
 
         WeekBars.Clear();
         foreach (var b in newBars)
