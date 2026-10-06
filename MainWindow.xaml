@@ -48,23 +48,16 @@
         </Grid.RowDefinitions>
 
         <!-- 1. HEADER (Spacious, Geometric, Bold Title & Date Navigation) -->
-        <Grid Grid.Row="0" Margin="0,0,0,24">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
+        <!-- 1. HEADER (Spacious, Geometric, Bold Title & Date Navigation) -->
+        <WrapPanel Grid.Row="0" Margin="0,0,0,8" Orientation="Horizontal" VerticalAlignment="Center">
             <!-- App Title -->
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="◷" FontSize="26" Margin="0,0,12,0" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                    <TextBlock Text="Screen Time Tracker" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,40,16" VerticalAlignment="Center">
+                <TextBlock Text="◷" FontSize="26" Margin="0,0,12,0" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                <TextBlock Text="Screen Time Tracker" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Center Date Navigator (Flat Geometric Strip) -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Margin="0,0,40,16" VerticalAlignment="Center">
                 <!-- Anterior Button -->
                 <Button Style="{StaticResource ModernButtonStyle}" Command="{Binding PreviousDayCommand}" ToolTip="Ver el día anterior" Padding="10,6" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
@@ -105,7 +98,7 @@
             </StackPanel>
 
             <!-- Status & Action Controls -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
                 <!-- Live / History Status Indicator (Flat 1px Border) -->
                 <Border Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,8" Margin="0,0,12,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -130,7 +123,7 @@
                     </StackPanel>
                 </Button>
             </StackPanel>
-        </Grid>
+        </WrapPanel>
 
         <!-- 2. LIVE ACTIVE WINDOW BANNER (Flat Strip, CornerRadius=0) -->
         <Border Grid.Row="1" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="20,12" Margin="0,0,0,24">
