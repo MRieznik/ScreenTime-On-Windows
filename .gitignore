@@ -11,3 +11,7 @@ publish/
 
 ## Screen Time Tracker data logs (keeps default config.json)
 registros/screen_time_*.json
+
+## Antigravity Rules
+agents.md
+.agents/
