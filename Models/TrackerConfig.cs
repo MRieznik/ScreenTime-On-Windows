@@ -7,6 +7,7 @@ namespace ScreenTimeTracker.Models;
 public class TrackerConfig
 {
     public int TrackingIntervalSeconds { get; set; } = 5;
+    public int InactivityTimeoutMinutes { get; set; } = 5;
     public bool StartWithWindows { get; set; } = false;
 
     /// <summary>

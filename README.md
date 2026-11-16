@@ -8,13 +8,14 @@ Screen Time Tracker monitorea la ventana activa en primer plano a intervalos reg
 
 ## Funciones Principales
 
-- **Monitoreo de actividad en tiempo real**: Detecta la ventana y el proceso activo en primer plano mediante llamadas nativas a la API de Windows (`user32.dll`).
+- **Registro de uso**: Estima el tiempo por ventana en primer plano. Se pausa al bloquear o suspender Windows, y después de 5 minutos sin entrada de teclado o ratón por defecto. El límite se puede cambiar o desactivar en Configuración. También podés pausar y reanudar el registro desde la vista principal.
 - **Detección inteligente de juegos**: Identifica videojuegos a partir de las rutas de bibliotecas configuradas (Steam, Epic Games, Battle.net, entre otras) o carpetas personalizadas, reconociendo títulos incluso en modo ventana sin bordes (*Borderless Windowed*) y omitiendo los lanzadores.
 - **Rastreo web**: Identifica dominios y pestañas activas en navegadores compatibles mediante *UI Automation*.
 - **Categorización automática**: Organiza el tiempo en tiempo total, juegos, aplicaciones de escritorio y navegación web.
 - **Historial y estadísticas**:
-  - Vista diaria detallada con desglose por aplicación o sitio.
+  - Vista diaria detallada con desglose por aplicación o sitio y acceso al resumen de la semana de ese día.
   - Navegación entre fechas para consultar registros históricos.
+  - Promedio general de esta semana en la vista principal. Incluye todas las categorías y divide el total por los días transcurridos desde el lunes, incluido hoy.
   - **Dashboard Semanal avanzado**: Gráfico interactivo, visualización de tendencias comparativas (ej. un X% más que la semana pasada), día pico de uso y ranking Top 3 de aplicaciones más usadas por categoría.
 - **Interfaz moderna y Responsive**: Diseño UI con efectos visuales dinámicos que se adapta limpiamente al reducir el tamaño de la ventana.
 - **Persistencia local en JSON**: Guarda los registros diarios y la configuración en la carpeta `registros/` en formato JSON, garantizando privacidad total sin dependencias de servicios externos ni telemetría.
@@ -49,12 +50,12 @@ dotnet publish -c Release -o "./publish/portable"
 ```
 El archivo ejecutable se creará en `publish/portable/ScreenTimeTracker.exe`. 
 
-**Nota sobre datos locales:** Al ser una versión portátil, la aplicación siempre creará y leerá sus datos en una carpeta llamada `registros` ubicada exactamente en el mismo directorio donde coloques el `.exe`. Si trasladas la aplicación a otro PC o carpeta, asegúrate de copiar la carpeta `registros` junto a ella para conservar tu historial.
+**Datos locales.** La aplicación guarda sus datos en `registros` junto al ejecutable. Si esa ubicación no admite escritura, usa `%LocalAppData%\ScreenTimeTracker\registros`. Al trasladar la aplicación, copiá la carpeta que contiene tu historial.
 
 ## Estructura del Proyecto
 
 - **Models**: Clases de datos para registros de actividad, acumulados diarios y configuración.
-- **Services**: Servicios de captura de ventanas (`NativeMethods`), extracción web (`EdgeAutomationService`), almacenamiento local (`StorageService`) y ciclo de monitoreo (`WindowTrackerService`).
+- **Services**: Servicios de captura de ventanas (`NativeMethods`), extracción web (`BrowserAutomationService`), almacenamiento local (`StorageService`) y ciclo de monitoreo (`WindowTrackerService`).
 - **ViewModels**: Lógica de presentación y comandos bajo el patrón MVVM.
 - **Assets**: Recursos visuales e iconos de la aplicación.
 - **registros**: Directorio local donde se almacenan las configuraciones y los archivos JSON diarios.

@@ -17,222 +17,168 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
         
-        <Style x:Key="HoverCardStyle" TargetType="Border">
+        <Style x:Key="StatisticButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
             <Setter Property="Background" Value="{StaticResource BrushCardBg}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BrushCardBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Padding" Value="22,20"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1A1A1E"/>
-                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="36,28,36,28">
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CloseOverlayCommand}"/>
+    </Window.InputBindings>
+
+    <Grid Margin="24,20">
         <Grid.RowDefinitions>
-            <!-- 0: Header -->
             <RowDefinition Height="Auto"/>
-            <!-- 1: Live Active Window Banner -->
             <RowDefinition Height="Auto"/>
-            <!-- 2: 4 Summary Cards -->
             <RowDefinition Height="Auto"/>
-            <!-- 3: Table & Filter Header -->
             <RowDefinition Height="Auto"/>
-            <!-- 4: Activities List -->
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 1. HEADER (Spacious, Geometric, Bold Title & Date Navigation) -->
-        <!-- 1. HEADER (Spacious, Geometric, Bold Title & Date Navigation) -->
-        <WrapPanel Grid.Row="0" Margin="0,0,0,8" Orientation="Horizontal" VerticalAlignment="Center">
-            <!-- App Title -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,40,16" VerticalAlignment="Center">
-                <TextBlock Text="◷" FontSize="26" Margin="0,0,12,0" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                <TextBlock Text="Screen Time Tracker" FontSize="24" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-            </StackPanel>
+        <DockPanel Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Style="{StaticResource ModernButtonStyle}" Content="Configuración"
+                    Command="{Binding ToggleSettingsCommand}" IsEnabled="{Binding IsInitialized}"/>
+            <TextBlock Text="Screen Time Tracker" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+        </DockPanel>
 
-            <!-- Center Date Navigator (Flat Geometric Strip) -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,40,16" VerticalAlignment="Center">
-                <!-- Anterior Button -->
-                <Button Style="{StaticResource ModernButtonStyle}" Command="{Binding PreviousDayCommand}" ToolTip="Ver el día anterior" Padding="10,6" Margin="0,0,8,0">
+        <Border Grid.Row="1" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}"
+                BorderThickness="1" Padding="14,8" Margin="0,0,0,12">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource ModernButtonStyle}" Content="{Binding PauseButtonText}"
+                        Command="{Binding TogglePauseCommand}" IsEnabled="{Binding IsInitialized}" Margin="14,0,0,0"/>
+                <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="◀" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Anterior" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Ellipse Width="8" Height="8" Fill="{Binding TrackingStatusColor}" Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding TrackingStatusText}" FontWeight="SemiBold"/>
                     </StackPanel>
-                </Button>
-
-                <!-- Current Date Display + Context Badge -->
-                <Border Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,6">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="📅" FontSize="13" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding CurrentDateFormatted}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                        <!-- Badge: HOY / AYER / HACE X DÍAS -->
-                        <Border Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding DateNavigationLabel}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- Siguiente Button -->
-                <Button Style="{StaticResource ModernButtonStyle}" Command="{Binding NextDayCommand}" IsEnabled="{Binding CanGoToNextDay}" ToolTip="Avanzar al día siguiente" Padding="10,6" Margin="8,0,8,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Siguiente" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <TextBlock Text="▶" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- Volver a Hoy Button (Visible si se está viendo un día pasado) -->
-                <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding GoToTodayCommand}"
-                        Visibility="{Binding CanGoToNextDay, Converter={StaticResource BoolToVisConverter}}"
-                        ToolTip="Volver a la fecha de hoy en vivo" Padding="10,6">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="◷" FontSize="12" Foreground="#0C0F17" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Hoy" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-
-            <!-- Status & Action Controls -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <!-- Live / History Status Indicator (Flat 1px Border) -->
-                <Border Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,8" Margin="0,0,12,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource BrushAccent}" Margin="0,0,8,0"/>
-                        <TextBlock Text="{Binding ViewModeBadge}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- Weekly Summary Button -->
-                <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenChartCommand}" CommandParameter="Total" Margin="0,0,12,0" ToolTip="Ver reporte y gráfico de toda la semana">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="📊" Margin="0,0,6,0" FontSize="13" VerticalAlignment="Center"/>
-                        <TextBlock Text="Resumen Semanal" FontWeight="Bold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- Settings Button (Flat Geometric) -->
-                <Button Style="{StaticResource ModernButtonStyle}" Command="{Binding ToggleSettingsCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⚙" Margin="0,0,8,0" FontSize="13" VerticalAlignment="Center"/>
-                        <TextBlock Text="Configuración" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </WrapPanel>
-
-        <!-- 2. LIVE ACTIVE WINDOW BANNER (Flat Strip, CornerRadius=0) -->
-        <Border Grid.Row="1" Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="20,12" Margin="0,0,0,24">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="EN PRIMER PLANO:" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBlock Text="{Binding ActiveCategoryIcon}" FontSize="13" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding ActiveAppText}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ActiveAppText, StringFormat='En primer plano: {0}'}"
+                               Visibility="{Binding HasActiveApp, Converter={StaticResource BoolToVisConverter}}"
+                               Foreground="{StaticResource BrushTextSecondary}" TextTrimming="CharacterEllipsis" Margin="16,2,0,0"/>
                 </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Categoría: " FontSize="12" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center"/>
-                    <Border Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="10,3" Margin="6,0,0,0">
-                        <TextBlock Text="{Binding ActiveCategory}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}"/>
-                    </Border>
-                </StackPanel>
-            </Grid>
+            </DockPanel>
         </Border>
 
-        <!-- 3. SUMMARY CARDS (Flat 1px Borders, Spacious, Single Turquoise Accent) -->
-        <Grid Grid.Row="2" Margin="0,0,0,28">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="20"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="20"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="20"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Card 0: Total General -->
-            <Border Grid.Column="0" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de tiempo total (Lun - Dom)">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Total"/>
-                </Border.InputBindings>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="⏱" FontSize="14" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding DateNavigationLabel, StringFormat='{}TIEMPO TOTAL {0}'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="2" Margin="0,0,0,14">
+            <Border Background="{StaticResource BrushAccentBg}" BorderBrush="{StaticResource BrushCardBorder}"
+                    BorderThickness="1" Padding="14,10" Margin="0,0,0,14">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButtonStyle}" Content="Ver resumen semanal"
+                            Command="{Binding OpenCurrentWeekCommand}" IsEnabled="{Binding IsInitialized}"
+                            VerticalAlignment="Center" Margin="14,0,0,0"/>
+                    <StackPanel>
+                        <TextBlock Text="Promedio general de esta semana" FontSize="13" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="{Binding WeeklyOverviewAverage}" FontSize="22" FontWeight="Bold"
+                                       Foreground="{StaticResource BrushAccent}"/>
+                            <TextBlock Text="Desde el lunes hasta hoy" Foreground="{StaticResource BrushTextSecondary}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
                     </StackPanel>
-                    <TextBlock Text="{Binding TotalScreenTime}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,8"/>
-                    <TextBlock Text="Ver desglose semanal (Lun - Dom) →" FontSize="11" Foreground="{StaticResource BrushTextMuted}"/>
-                </StackPanel>
+                </DockPanel>
             </Border>
 
-            <!-- Card 1: Juegos -->
-            <Border Grid.Column="2" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de Juegos (Lun - Dom)">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Juegos"/>
-                </Border.InputBindings>
-                <StackPanel>
-                    <Grid Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🎮" FontSize="14" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="JUEGOS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <TextBlock HorizontalAlignment="Right" Text="{Binding GamingPercent, StringFormat='{}{0:F0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                    </Grid>
-                    <TextBlock Text="{Binding GamingTime}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,10"/>
-                    <ProgressBar Style="{StaticResource ModernProgressBarStyle}" Value="{Binding GamingPercent}" Maximum="100" Margin="0,0,0,10"/>
-                    <TextBlock Text="{Binding TopGame}" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
+            <DockPanel Margin="0,0,0,8">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0">
+                    <Button Style="{StaticResource ModernButtonStyle}" Content="‹  Día anterior"
+                            Command="{Binding PreviousDayCommand}" Margin="0,0,6,0"/>
+                    <Button Style="{StaticResource ModernButtonStyle}" Content="Hoy"
+                            Command="{Binding GoToTodayCommand}" IsEnabled="{Binding CanGoToNextDay}" Margin="0,0,6,0"/>
+                    <Button Style="{StaticResource ModernButtonStyle}" Content="Día siguiente  ›"
+                            Command="{Binding NextDayCommand}" IsEnabled="{Binding CanGoToNextDay}"/>
                 </StackPanel>
-            </Border>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Actividad diaria" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding CurrentDateFormatted}" Foreground="{StaticResource BrushTextSecondary}"
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                </StackPanel>
+            </DockPanel>
 
-            <!-- Card 2: Apps de Escritorio -->
-            <Border Grid.Column="4" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de Escritorio (Lun - Dom)">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Aplicaciones de Escritorio"/>
-                </Border.InputBindings>
-                <StackPanel>
-                    <Grid Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📁" FontSize="14" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="ESCRITORIO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <TextBlock HorizontalAlignment="Right" Text="{Binding DesktopPercent, StringFormat='{}{0:F0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                    </Grid>
-                    <TextBlock Text="{Binding DesktopTime}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,10"/>
-                    <ProgressBar Style="{StaticResource ModernProgressBarStyle}" Value="{Binding DesktopPercent}" Maximum="100" Margin="0,0,0,10"/>
-                    <TextBlock Text="{Binding TopDesktopApp}" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-            </Border>
+            <!-- 3. SUMMARY CARDS (Flat 1px Borders, Spacious, Single Turquoise Accent) -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- Card 3: Navegación Web -->
-            <Border Grid.Column="6" Style="{StaticResource HoverCardStyle}" ToolTip="Haz clic para ver el gráfico semanal de Navegación Web (Lun - Dom)">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick" Command="{Binding OpenChartCommand}" CommandParameter="Navegación Web"/>
-                </Border.InputBindings>
-                <StackPanel>
-                    <Grid Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="☁" FontSize="14" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="NAVEGACIÓN WEB" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                <!-- Card 0: Total General -->
+                <Button Grid.Column="0" Style="{StaticResource StatisticButtonStyle}"
+                        Command="{Binding OpenChartCommand}" CommandParameter="Total"
+                        AutomationProperties.Name="Ver semana: tiempo total" ToolTip="Ver semana: tiempo total">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock Text="⏱" FontSize="14" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DateNavigationLabel, StringFormat='{}TIEMPO TOTAL {0}'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock HorizontalAlignment="Right" Text="{Binding WebPercent, StringFormat='{}{0:F0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                    </Grid>
-                    <TextBlock Text="{Binding WebTime}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,10"/>
-                    <ProgressBar Style="{StaticResource ModernProgressBarStyle}" Value="{Binding WebPercent}" Maximum="100" Margin="0,0,0,10"/>
-                    <TextBlock Text="{Binding TopWebDomain}" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-            </Border>
-        </Grid>
+                        <TextBlock Text="{Binding TotalScreenTime}" FontSize="23" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,8"/>
+                        <TextBlock Text="Ver semana →" FontSize="11" Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Card 1: Juegos -->
+                <Button Grid.Column="2" Style="{StaticResource StatisticButtonStyle}"
+                        Command="{Binding OpenChartCommand}" CommandParameter="Juegos"
+                        AutomationProperties.Name="Ver semana: juegos" ToolTip="Ver semana: juegos">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🎮" FontSize="14" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="JUEGOS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock HorizontalAlignment="Right" Text="{Binding GamingPercent, StringFormat='{}{0:F0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                        </Grid>
+                        <TextBlock Text="{Binding GamingTime}" FontSize="23" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                        <ProgressBar Style="{StaticResource ModernProgressBarStyle}" Value="{Binding GamingPercent}" Maximum="100" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding TopGame}" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Ver semana →" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Card 2: Apps de Escritorio -->
+                <Button Grid.Column="4" Style="{StaticResource StatisticButtonStyle}"
+                        Command="{Binding OpenChartCommand}" CommandParameter="Aplicaciones de Escritorio"
+                        AutomationProperties.Name="Ver semana: escritorio" ToolTip="Ver semana: escritorio">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📁" FontSize="14" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="ESCRITORIO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock HorizontalAlignment="Right" Text="{Binding DesktopPercent, StringFormat='{}{0:F0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                        </Grid>
+                        <TextBlock Text="{Binding DesktopTime}" FontSize="23" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                        <ProgressBar Style="{StaticResource ModernProgressBarStyle}" Value="{Binding DesktopPercent}" Maximum="100" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding TopDesktopApp}" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Ver semana →" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Card 3: Navegación Web -->
+                <Button Grid.Column="6" Style="{StaticResource StatisticButtonStyle}"
+                        Command="{Binding OpenChartCommand}" CommandParameter="Navegación Web"
+                        AutomationProperties.Name="Ver semana: navegación web" ToolTip="Ver semana: navegación web">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="☁" FontSize="14" Foreground="{StaticResource BrushAccent}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="NAVEGACIÓN WEB" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock HorizontalAlignment="Right" Text="{Binding WebPercent, StringFormat='{}{0:F0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                        </Grid>
+                        <TextBlock Text="{Binding WebTime}" FontSize="23" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                        <ProgressBar Style="{StaticResource ModernProgressBarStyle}" Value="{Binding WebPercent}" Maximum="100" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding TopWebDomain}" FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Ver semana →" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </StackPanel>
 
         <!-- 4. TABLE FILTERS & CONTROLS -->
         <Grid Grid.Row="3" Margin="0,0,0,14">
@@ -243,22 +189,70 @@
 
             <!-- Filter Buttons (Geometric Segments, CornerRadius=0) -->
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding DateNavigationLabel, StringFormat='{}Desglose de {0}:'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center" Margin="0,0,18,0"/>
+                <TextBlock Text="{Binding DateNavigationLabel, StringFormat='{}Detalle · {0}'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center" Margin="0,0,18,0"/>
 
                 <Border Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0">
                     <StackPanel Orientation="Horizontal">
-                        <Button Style="{StaticResource FilterButtonStyle}" Content="Todas" Command="{Binding SetFilterCommand}" CommandParameter="Todas"/>
+                        <Button Content="Todas" Command="{Binding SetFilterCommand}" CommandParameter="Todas">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedFilter}" Value="Todas">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="Background" Value="{StaticResource BrushAccentBg}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <Border Width="1" Background="{StaticResource BrushCardBorder}"/>
-                        <Button Style="{StaticResource FilterButtonStyle}" Content="🎮  Juegos" Command="{Binding SetFilterCommand}" CommandParameter="Juegos"/>
+                        <Button Content="🎮  Juegos" Command="{Binding SetFilterCommand}" CommandParameter="Juegos">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedFilter}" Value="Juegos">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="Background" Value="{StaticResource BrushAccentBg}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <Border Width="1" Background="{StaticResource BrushCardBorder}"/>
-                        <Button Style="{StaticResource FilterButtonStyle}" Content="📁  Apps" Command="{Binding SetFilterCommand}" CommandParameter="Aplicaciones de Escritorio"/>
+                        <Button Content="📁  Apps" Command="{Binding SetFilterCommand}" CommandParameter="Aplicaciones de Escritorio">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedFilter}" Value="Aplicaciones de Escritorio">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="Background" Value="{StaticResource BrushAccentBg}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <Border Width="1" Background="{StaticResource BrushCardBorder}"/>
-                        <Button Style="{StaticResource FilterButtonStyle}" Content="☁  Web" Command="{Binding SetFilterCommand}" CommandParameter="Navegación Web"/>
+                        <Button Content="☁  Web" Command="{Binding SetFilterCommand}" CommandParameter="Navegación Web">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedFilter}" Value="Navegación Web">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                            <Setter Property="Background" Value="{StaticResource BrushAccentBg}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </StackPanel>
                 </Border>
             </StackPanel>
 
-            <TextBlock Grid.Column="1" Text="Actualizado cada 5s" FontSize="11" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="Filtrar por categoría" FontSize="11" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center"/>
         </Grid>
 
         <!-- 5. ACTIVITIES LIST / TABLE (Catalog Grid Style, CornerRadius=0) -->
@@ -326,8 +320,9 @@
         <!-- 6. SETTINGS OVERLAY FOR GENERAL & GAME DIRECTORIES (Flat, CornerRadius=0) -->
         <Grid Grid.Row="0" Grid.RowSpan="5"
               Visibility="{Binding IsSettingsOpen, Converter={StaticResource BoolToVisConverter}}"
-              Background="#D90C0C0E">
-            <Border Width="680" MinHeight="500" MaxHeight="680"
+              Background="#D90C0C0E" KeyboardNavigation.TabNavigation="Cycle"
+              IsVisibleChanged="OverlayVisibilityChanged">
+            <Border Width="680" MaxHeight="680"
                     Background="{StaticResource BrushCardBg}"
                     BorderBrush="{StaticResource BrushCardBorder}"
                     BorderThickness="1"
@@ -356,7 +351,7 @@
                             </StackPanel>
                             <TextBlock Text="Preferencias del sistema y bibliotecas de detección" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="28,3,0,0"/>
                         </StackPanel>
-                        <Button HorizontalAlignment="Right" Style="{StaticResource ModernButtonStyle}" Content="✕" Command="{Binding ToggleSettingsCommand}" Padding="10,6" FontSize="13" VerticalAlignment="Center"/>
+                        <Button HorizontalAlignment="Right" Style="{StaticResource ModernButtonStyle}" Content="Cerrar" Command="{Binding ToggleSettingsCommand}" Padding="10,6" FontSize="13" VerticalAlignment="Center"/>
                     </Grid>
 
                     <!-- Tab Switcher (Flat Segments, CornerRadius=0) -->
@@ -396,97 +391,44 @@
 
                     <!-- TAB CONTENT AREA -->
                     <!-- 1. GENERAL TAB -->
-                    <StackPanel Grid.Row="2" Visibility="{Binding IsGeneralTabSelected, Converter={StaticResource BoolToVisConverter}}" Margin="0,0,0,18">
-                        <!-- Auto-start Windows Toggle Card (Flat) -->
-                        <Border Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="20,18" Margin="0,0,0,16">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                                        <TextBlock Text="Iniciar con Windows" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
-                                        <TextBlock Text="Ejecuta Screen Time Tracker en segundo plano automáticamente al iniciar sesión en tu PC."
-                                                   FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    <ScrollViewer Grid.Row="2" Visibility="{Binding IsGeneralTabSelected, Converter={StaticResource BoolToVisConverter}}"
+                                  VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
+                        <StackPanel>
+                            <!-- Auto-start Windows Toggle Card (Flat) -->
+                            <Border Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="20,18" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Iniciar con Windows" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            <TextBlock Text="Ejecuta Screen Time Tracker en segundo plano automáticamente al iniciar sesión en tu PC."
+                                                       FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="1" Style="{StaticResource ModernToggleSwitchStyle}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center"/>
+                                    </Grid>
+
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource BrushCardBg}" BorderBrush="{StaticResource BrushCardBorder}"
+                                    BorderThickness="1" Padding="20,16">
+                                <DockPanel>
+                                    <ComboBox DockPanel.Dock="Right" ItemsSource="{Binding InactivityOptions}"
+                                              SelectedValue="{Binding InactivityTimeoutMinutes}" SelectedValuePath="Minutes"
+                                              DisplayMemberPath="Label" AutomationProperties.Name="Pausar por inactividad"
+                                              MinWidth="130" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                                    <StackPanel>
+                                        <TextBlock Text="Pausar por inactividad" FontSize="15" FontWeight="Bold"/>
+                                        <TextBlock Text="Sin teclado ni ratón durante el tiempo elegido. Podés desactivarla para videos o juegos con mando."
+                                                   Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
-                                    <CheckBox Grid.Column="1" Style="{StaticResource ModernToggleSwitchStyle}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center"/>
-                                </Grid>
-
-                                <Border Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="12,10" Margin="0,14,0,0">
-                                    <TextBlock Text="Configurado en el Registro de Windows (HKCU\Software\Microsoft\Windows\CurrentVersion\Run) de forma segura y sin privilegios de Administrador."
-                                               FontSize="11" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- System Information Cards (Flat) -->
-                        <Border Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="20,16">
-                            <StackPanel>
-                                <TextBlock Text="Información del Sistema" FontSize="13" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,14"/>
-
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Intervalo de sondeo:" FontSize="12" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Grid.Column="2" Text="Cada 5 segundos" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                                </Grid>
-
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Almacenamiento:" FontSize="12" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Grid.Column="2" Text="data/screen_time_YYYY-MM-DD.json" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                                </Grid>
-
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Privacidad:" FontSize="12" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Grid.Column="2" Text="100% Local y Offline" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                                </Grid>
-
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Detección Web:" FontSize="12" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Grid.Column="2" Text="Multinavegador (Chrome, Edge, Brave, Firefox, etc.)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                                </Grid>
-
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Autor:" FontSize="12" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Grid.Column="2" Text="Marcos Rieznik" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
-                                </Grid>
-
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Licencia:" FontSize="12" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Grid.Column="2" Text="GNU General Public License v3.0 (GPLv3)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
 
                     <!-- 2. GAME DIRECTORIES TAB (Flat) -->
                     <Grid Grid.Row="2" Visibility="{Binding IsGamesTabSelected, Converter={StaticResource BoolToVisConverter}}" Margin="0,0,0,18">
@@ -553,7 +495,6 @@
                             <TextBlock Text="Desarrollado por Marcos Rieznik" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}"/>
                             <TextBlock Text="Licencia GNU General Public License v3.0 (GPLv3)" FontSize="10" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
                         </StackPanel>
-                        <Button Style="{StaticResource ModernButtonStyle}" Content="Cerrar" HorizontalAlignment="Right" Command="{Binding ToggleSettingsCommand}" Width="100"/>
                     </Grid>
                 </Grid>
             </Border>
@@ -562,303 +503,315 @@
         <!-- 7. WEEKLY BAR CHART MODAL OVERLAY (Flat, Geometric, CornerRadius=0) -->
         <Grid Grid.Row="0" Grid.RowSpan="5"
               Visibility="{Binding IsChartOpen, Converter={StaticResource BoolToVisConverter}}"
-              Background="#D90C0C0E">
-            <Border Width="880"
+              Background="#D90C0C0E" KeyboardNavigation.TabNavigation="Cycle"
+              IsVisibleChanged="OverlayVisibilityChanged">
+            <Border MaxWidth="880"
                     Background="{StaticResource BrushCardBg}"
                     BorderBrush="{StaticResource BrushCardBorder}"
                     BorderThickness="1"
                     CornerRadius="0"
-                    Padding="32,26"
-                    HorizontalAlignment="Center"
+                    Padding="18,16"
+                    HorizontalAlignment="Stretch"
                     VerticalAlignment="Center">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <!-- Row 0: Title & Close -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- Row 1: Week Navigation Strip -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- Row 2: Category Filter Segmented Pills -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- Row 3: KPI Strip -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- Row 4: Bar Chart Area -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- Row 5: Footer -->
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <!-- Row 0: Title & Close -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Row 1: Week Navigation Strip -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Row 2: Category Filter Segmented Pills -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Row 3: KPI Strip -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Row 4: Bar Chart Area -->
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                    <!-- Title & Close Button -->
-                    <Grid Grid.Row="0" Margin="0,0,0,18">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Title + Icon -->
-                        <StackPanel VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding ChartIcon}" FontSize="20" Margin="0,0,10,0" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ChartTitle}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                            </StackPanel>
-                            <TextBlock Text="Histórico semanal y distribución de tiempo de pantalla" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="30,4,0,0"/>
-                        </StackPanel>
-
-                        <Button Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource ModernButtonStyle}" Content="✕" Command="{Binding CloseChartCommand}" Padding="10,6" FontSize="13" VerticalAlignment="Center"/>
-                    </Grid>
-
-                    <!-- Row 1: Week Navigation Strip (Flat Scandinavian, CornerRadius=0) -->
-                    <Border Grid.Row="1" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10" Margin="0,0,0,18">
-                        <Grid>
+                        <!-- Title & Close Button -->
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Previous Week Button -->
-                            <Button Grid.Column="0"
-                                    Style="{StaticResource ModernButtonStyle}"
-                                    Command="{Binding PreviousWeekCommand}"
-                                    Padding="12,6"
-                                    ToolTip="Ver la semana anterior">
+                            <!-- Title + Icon -->
+                            <StackPanel VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="◀" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Semana Anterior" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ChartIcon}" FontSize="20" Margin="0,0,10,0" Foreground="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ChartTitle}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                            </Button>
-
-                            <!-- Center Date Display + Context Badge -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding ChartSubtitle}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                                <Border Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,3" Margin="12,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding ChartWeekRelativeLabel}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
-                                </Border>
+                                <TextBlock Text="Elegí un día del gráfico para ver su actividad" FontSize="13" Foreground="{StaticResource BrushTextSecondary}" Margin="30,4,0,0"/>
                             </StackPanel>
 
-                            <!-- Next Week and 'Esta Semana' Jump Button -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Style="{StaticResource ModernButtonStyle}"
-                                        Command="{Binding CurrentWeekCommand}"
-                                        Visibility="{Binding CanGoToCurrentWeek, Converter={StaticResource BoolToVisConverter}}"
-                                        Padding="10,6"
-                                        Margin="0,0,8,0"
-                                        ToolTip="Volver a la semana en curso">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="◷" FontSize="12" Foreground="{StaticResource BrushAccent}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Esta Semana" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
+                            <Button Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource ModernButtonStyle}" Content="Cerrar" Command="{Binding CloseChartCommand}" Padding="10,6" FontSize="13" VerticalAlignment="Center"/>
+                        </Grid>
 
-                                <Button Style="{StaticResource ModernButtonStyle}"
-                                        Command="{Binding NextWeekCommand}"
-                                        IsEnabled="{Binding CanGoToNextWeek}"
+                        <!-- Row 1: Week Navigation Strip (Flat Scandinavian, CornerRadius=0) -->
+                        <Border Grid.Row="1" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Previous Week Button -->
+                                <Button Grid.Column="0"
+                                        Style="{StaticResource ModernButtonStyle}"
+                                        Command="{Binding PreviousWeekCommand}"
                                         Padding="12,6"
-                                        ToolTip="Avanzar a la siguiente semana">
+                                        ToolTip="Ver la semana anterior">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Siguiente" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                        <TextBlock Text="▶" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="◀" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Semana anterior" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
 
-                    <!-- Category Filter Segmented Strip (CornerRadius=0) -->
-                    <Border Grid.Row="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Margin="0,0,0,22">
-                        <UniformGrid Rows="1" Columns="4">
-                            <!-- 1. VOLVER A TODO -->
-                            <Button Content="⏱  Todo" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Total">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsChartTotalSelected}" Value="True">
-                                                <Setter Property="Background" Value="#18181B"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
+                                <!-- Center Date Display + Context Badge -->
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0">
+                                    <TextBlock Text="{Binding ChartSubtitle}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
+                                    <Border Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,3" Margin="0,3,0,0" HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding ChartWeekRelativeLabel}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
+                                    </Border>
+                                </StackPanel>
 
-                            <!-- 2. JUEGOS -->
-                            <Button Content="🎮  Juegos" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Juegos">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsChartGamingSelected}" Value="True">
-                                                <Setter Property="Background" Value="#18181B"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
+                                <!-- Next Week and 'Esta Semana' Jump Button -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource ModernButtonStyle}"
+                                            Command="{Binding CurrentWeekCommand}"
+                                            Visibility="{Binding CanGoToCurrentWeek, Converter={StaticResource BoolToVisConverter}}"
+                                            Padding="10,6"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Volver a la semana en curso">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="◷" FontSize="12" Foreground="{StaticResource BrushAccent}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Esta Semana" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
 
-                            <!-- 3. ESCRITORIO -->
-                            <Button Content="📁  Escritorio" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Aplicaciones de Escritorio">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsChartDesktopSelected}" Value="True">
-                                                <Setter Property="Background" Value="#18181B"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-
-                            <!-- 4. WEB -->
-                            <Button Content="☁  Web" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Navegación Web">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsChartWebSelected}" Value="True">
-                                                <Setter Property="Background" Value="#18181B"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </UniformGrid>
-                    </Border>
-
-                    <!-- KPI Summary Strip (Flat, CornerRadius=0) -->
-                    <Grid Grid.Row="3" Margin="0,0,0,22">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="16"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="16"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <Border Grid.Column="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
-                            <StackPanel>
-                                <TextBlock Text="TOTAL DE LA SEMANA" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
-                                <TextBlock Text="{Binding WeekTotalFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,4,0,0"/>
-                            </StackPanel>
+                                    <Button Style="{StaticResource ModernButtonStyle}"
+                                            Command="{Binding NextWeekCommand}"
+                                            IsEnabled="{Binding CanGoToNextWeek}"
+                                            Padding="12,6"
+                                            ToolTip="Avanzar a la siguiente semana">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Semana siguiente" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            <TextBlock Text="▶" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <Border Grid.Column="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
-                            <StackPanel>
-                                <TextBlock Text="PROMEDIO DIARIO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
-                                <TextBlock Text="{Binding WeekAverageFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,4,0,0"/>
-                            </StackPanel>
+                        <!-- Category Filter Segmented Strip (CornerRadius=0) -->
+                        <Border Grid.Row="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Margin="0,0,0,10">
+                            <UniformGrid Rows="1" Columns="4">
+                                <!-- 1. VOLVER A TODO -->
+                                <Button Content="⏱  Todo" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Total">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChartTotalSelected}" Value="True">
+                                                    <Setter Property="Background" Value="#18181B"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- 2. JUEGOS -->
+                                <Button Content="🎮  Juegos" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Juegos">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChartGamingSelected}" Value="True">
+                                                    <Setter Property="Background" Value="#18181B"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- 3. ESCRITORIO -->
+                                <Button Content="📁  Escritorio" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Aplicaciones de Escritorio">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChartDesktopSelected}" Value="True">
+                                                    <Setter Property="Background" Value="#18181B"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- 4. WEB -->
+                                <Button Content="☁  Web" Command="{Binding SwitchChartCategoryCommand}" CommandParameter="Navegación Web">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChartWebSelected}" Value="True">
+                                                    <Setter Property="Background" Value="#18181B"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </UniformGrid>
                         </Border>
 
-                        <Border Grid.Column="4" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
-                            <StackPanel>
-                                <TextBlock Text="DÍA CON MÁS ACTIVIDAD" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
-                                <TextBlock Text="{Binding WeekPeakDay}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+                        <!-- KPI Summary Strip (Flat, CornerRadius=0) -->
+                        <Grid Grid.Row="3" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                    <!-- Bar Chart & Highlights Area -->
-                    <Grid Grid.Row="4" Margin="0,0,0,22">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="20"/>
-                            <ColumnDefinition Width="260"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Bar Chart Area (Flat Pillars, CornerRadius=0) -->
-                        <Border Grid.Column="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="24,24,24,18">
-                            <ItemsControl ItemsSource="{Binding WeekBars}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <UniformGrid Rows="1" Columns="7"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="8,0" VerticalAlignment="Bottom" Cursor="Hand" ToolTip="Haz clic para ver el desglose detallado de este día">
-                                            <Grid.InputBindings>
-                                                <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.SelectDayFromChartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
-                                            </Grid.InputBindings>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="190"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
-
-                                            <!-- Value on top of bar -->
-                                            <Border Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,8"
-                                                    Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,3">
-                                                <TextBlock Text="{Binding HoursLabel}" FontSize="12" FontWeight="Bold"
-                                                           Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center"
-                                                           ToolTip="{Binding FormattedTime}"/>
-                                            </Border>
-
-                                            <!-- The Vertical Bar Container (Flat, CornerRadius=0) -->
-                                            <Grid Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <!-- Baseline empty background pillar -->
-                                                <Border Width="52" Height="190" Background="#1E1E24" CornerRadius="0"/>
-
-                                                <!-- Filled Bar (Turquoise Accent) -->
-                                                <Border Width="52"
-                                                        Height="{Binding BarHeight}"
-                                                        Background="{StaticResource BrushAccent}"
-                                                        CornerRadius="0"
-                                                        VerticalAlignment="Bottom"
-                                                        ToolTip="{Binding FormattedTime}"/>
-                                            </Grid>
-
-                                            <!-- Day Labels on Bottom -->
-                                            <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,10,0,0">
-                                                <TextBlock Text="{Binding DayShort}" FontSize="13" FontWeight="Bold"
-                                                           Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="{Binding DateString}" FontSize="10"
-                                                           Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-
-                                                <!-- TODAY Badge (Flat) -->
-                                                <Border Background="{StaticResource BrushAccent}" CornerRadius="0" Padding="6,2" Margin="0,4,0,0"
-                                                        HorizontalAlignment="Center"
-                                                        Visibility="{Binding IsToday, Converter={StaticResource BoolToVisConverter}}">
-                                                    <TextBlock Text="HOY" FontSize="9" FontWeight="Bold" Foreground="#121214"/>
-                                                </Border>
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Border>
-
-                        <!-- Highlights Area -->
-                        <Grid Grid.Column="2">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="20"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <!-- Trend -->
-                            <Border Grid.Row="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
+                            <Border Grid.Column="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10">
                                 <StackPanel>
-                                    <TextBlock Text="TENDENCIA SEMANAL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Text="{Binding WeekTrendFormatted}" FontSize="15" FontWeight="Bold" Foreground="{Binding WeekTrendColor}" Margin="0,8,0,0"/>
+                                    <TextBlock Text="TOTAL DE LA SEMANA" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                    <TextBlock Text="{Binding WeekTotalFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,4,0,0"/>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Top Apps -->
-                            <Border Grid.Row="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="16,14">
+                            <Border Grid.Column="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10">
                                 <StackPanel>
-                                    <TextBlock Text="TOP 3 APLICACIONES" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
-                                    <TextBlock Text="{Binding WeekTopAppsFormatted}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,0" LineHeight="24"/>
+                                    <TextBlock Text="PROMEDIO DIARIO" ToolTip="Total dividido por los días transcurridos de la semana" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                    <TextBlock Text="{Binding WeekAverageFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="4" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10">
+                                <StackPanel>
+                                    <TextBlock Text="DÍA CON MÁS ACTIVIDAD" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                    <TextBlock Text="{Binding WeekPeakDay}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushAccent}" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Border>
                         </Grid>
-                    </Grid>
 
-                    <!-- Footer -->
-                    <Button Grid.Row="5" Style="{StaticResource ModernButtonStyle}" Content="Cerrar" HorizontalAlignment="Right" Command="{Binding CloseChartCommand}" Width="100"/>
-                </Grid>
+                        <!-- Bar Chart & Highlights Area -->
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="260"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Bar Chart Area (Flat Pillars, CornerRadius=0) -->
+                            <Border Grid.Column="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="8,12,8,10">
+                                <ItemsControl ItemsSource="{Binding WeekBars}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1" Columns="7"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource StatisticButtonStyle}" Padding="0,5"
+                                                    Margin="2,0" VerticalAlignment="Bottom"
+                                                    Command="{Binding DataContext.SelectDayFromChartCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" IsEnabled="{Binding CanOpen}"
+                                                    AutomationProperties.Name="{Binding DayName}" AutomationProperties.HelpText="{Binding FormattedTime}"
+                                                    ToolTip="{Binding FormattedTime}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="130"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+
+                                                    <!-- Value on top of bar -->
+                                                    <Border Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,8"
+                                                            Background="#18181B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="3,3">
+                                                        <TextBlock Text="{Binding HoursLabel}" FontSize="12" FontWeight="Bold"
+                                                                   Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center"
+                                                                   ToolTip="{Binding FormattedTime}"/>
+                                                    </Border>
+
+                                                    <!-- The Vertical Bar Container (Flat, CornerRadius=0) -->
+                                                    <Grid Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center">
+                                                        <!-- Baseline empty background pillar -->
+                                                        <Border Width="34" Height="130" Background="#1E1E24" CornerRadius="0"/>
+
+                                                        <!-- Filled Bar (Turquoise Accent) -->
+                                                        <Border Width="34"
+                                                                Height="{Binding BarHeight}"
+                                                                Background="{StaticResource BrushAccent}"
+                                                                CornerRadius="0"
+                                                                VerticalAlignment="Bottom"
+                                                                ToolTip="{Binding FormattedTime}"/>
+                                                    </Grid>
+
+                                                    <!-- Day Labels on Bottom -->
+                                                    <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                                        <TextBlock Text="{Binding DayShort}" FontSize="13" FontWeight="Bold"
+                                                                   Foreground="{StaticResource BrushTextPrimary}" HorizontalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding DateString}" FontSize="10"
+                                                                   Foreground="{StaticResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+
+                                                        <!-- TODAY Badge (Flat) -->
+                                                        <Border Background="{StaticResource BrushAccent}" CornerRadius="0" Padding="6,2" Margin="0,4,0,0"
+                                                                HorizontalAlignment="Center">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsToday}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="HOY" FontSize="9" FontWeight="Bold" Foreground="#121214"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+
+                            <!-- Highlights Area -->
+                            <Grid Grid.Column="2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="20"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Trend -->
+                                <Border Grid.Row="0" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10">
+                                    <StackPanel>
+                                        <TextBlock Text="TENDENCIA SEMANAL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                        <TextBlock Text="{Binding WeekTrendFormatted}" FontSize="15" FontWeight="Bold" Foreground="{Binding WeekTrendColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Top Apps -->
+                                <Border Grid.Row="2" Background="#121214" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="0" Padding="14,10">
+                                    <StackPanel>
+                                        <TextBlock Text="TOP 3 APLICACIONES" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                        <TextBlock Text="{Binding WeekTopAppsFormatted}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,8,0,0" LineHeight="20" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+
+                    </Grid>
+                </ScrollViewer>
             </Border>
         </Grid>
     </Grid>
