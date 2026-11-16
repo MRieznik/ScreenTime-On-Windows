@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Input;
 using ScreenTimeTracker.Models;
 using ScreenTimeTracker.Services;
+using TrackingStatus = ScreenTimeTracker.Services.WindowTrackerService.TrackingStatus;
 
 namespace ScreenTimeTracker.ViewModels;
 
@@ -15,7 +16,13 @@ public class MainViewModel : ViewModelBase
     private readonly WindowTrackerService _trackerService;
     private readonly StorageService _storageService;
 
-    private bool _isTracking;
+    private TrackingStatus _trackingStatus;
+    private bool _isInitialized;
+    private string? _overviewDate;
+    private int? _overviewPastSeconds;
+    private string _weeklyOverviewAverage = "—";
+    private int _chartRequestId;
+    private DateTime _lastTrackingDate = DateTime.Today;
     private string _currentDateFormatted = string.Empty;
     private string _totalScreenTime = "00m 00s";
     private int _totalScreenSeconds;
@@ -35,9 +42,7 @@ public class MainViewModel : ViewModelBase
     private double _webPercent;
     private string _topWebDomain = "Sin actividad";
 
-    private string _activeAppText = "Esperando detección...";
-    private string _activeCategory = "Inactivo";
-    private string _activeCategoryIcon = "⏸️";
+    private string _activeAppText = string.Empty;
 
     private string _selectedFilter = "Todas";
     private bool _isSettingsOpen = false;
@@ -57,7 +62,6 @@ public class MainViewModel : ViewModelBase
                 UpdateDateString();
                 OnPropertyChanged(nameof(IsViewingToday));
                 OnPropertyChanged(nameof(CanGoToNextDay));
-                OnPropertyChanged(nameof(ViewModeBadge));
                 OnPropertyChanged(nameof(DateNavigationLabel));
                 _ = LoadDateDataAsync(_selectedDate);
             }
@@ -66,7 +70,6 @@ public class MainViewModel : ViewModelBase
 
     public bool IsViewingToday => _selectedDate.Date == DateTime.Today;
     public bool CanGoToNextDay => _selectedDate.Date < DateTime.Today;
-    public string ViewModeBadge => IsViewingToday ? "EN VIVO" : "HISTORIAL";
 
     public string DateNavigationLabel
     {
@@ -91,8 +94,6 @@ public class MainViewModel : ViewModelBase
     private string _chartTitle = "Tiempo Semanal";
     private string _chartSubtitle = "Lunes a Domingo";
     private string _chartIcon = "⏳";
-    private string _chartColor = "#6366F1";
-    private string _chartColorBg = "#232048";
     private string _weekTotalFormatted = "00m 00s";
     private string _weekAverageFormatted = "00m 00s / día";
     private string _weekPeakDay = "Sin actividad";
@@ -182,18 +183,6 @@ public class MainViewModel : ViewModelBase
         set => SetField(ref _chartIcon, value);
     }
 
-    public string ChartColor
-    {
-        get => _chartColor;
-        set => SetField(ref _chartColor, value);
-    }
-
-    public string ChartColorBg
-    {
-        get => _chartColorBg;
-        set => SetField(ref _chartColorBg, value);
-    }
-
     public string WeekTotalFormatted
     {
         get => _weekTotalFormatted;
@@ -236,21 +225,66 @@ public class MainViewModel : ViewModelBase
         set => SetField(ref _hasNoActivities, value);
     }
 
-    public bool IsTracking
+    public TrackingStatus TrackingState
     {
-        get => _isTracking;
-        set
+        get => _trackingStatus;
+        private set
         {
-            if (SetField(ref _isTracking, value))
+            if (SetField(ref _trackingStatus, value))
             {
                 OnPropertyChanged(nameof(TrackingStatusText));
                 OnPropertyChanged(nameof(TrackingStatusColor));
+                OnPropertyChanged(nameof(PauseButtonText));
             }
         }
     }
 
-    public string TrackingStatusText => IsTracking ? "Rastreando en vivo" : "Rastreo en pausa";
-    public string TrackingStatusColor => IsTracking ? "#10B981" : "#F59E0B";
+    public string TrackingStatusText => TrackingState switch
+    {
+        TrackingStatus.Active => "Registrando actividad",
+        TrackingStatus.Idle => "En pausa por inactividad",
+        TrackingStatus.Locked => "En pausa por pantalla bloqueada",
+        TrackingStatus.Suspended => "En pausa por suspensión",
+        TrackingStatus.Paused => "En pausa manual",
+        _ => "Esperando actividad"
+    };
+
+    public string TrackingStatusColor => TrackingState == TrackingStatus.Active ? "#2DD4BF" : "#F59E0B";
+    public string PauseButtonText => TrackingState == TrackingStatus.Paused ? "Reanudar registro" : "Pausar registro";
+    public bool IsInitialized
+    {
+        get => _isInitialized;
+        private set => SetField(ref _isInitialized, value);
+    }
+
+    public string WeeklyOverviewAverage
+    {
+        get => _weeklyOverviewAverage;
+        private set => SetField(ref _weeklyOverviewAverage, value);
+    }
+
+    public record InactivityOption(int Minutes, string Label);
+
+    public IReadOnlyList<InactivityOption> InactivityOptions { get; } = new[]
+    {
+        new InactivityOption(2, "2 minutos"),
+        new InactivityOption(5, "5 minutos"),
+        new InactivityOption(10, "10 minutos"),
+        new InactivityOption(15, "15 minutos"),
+        new InactivityOption(0, "Desactivada")
+    };
+
+    public int InactivityTimeoutMinutes
+    {
+        get => _trackerService.Config.InactivityTimeoutMinutes;
+        set
+        {
+            if (!IsInitialized || value == InactivityTimeoutMinutes) return;
+
+            _ = _trackerService.SetInactivityTimeoutAsync(value);
+            OnPropertyChanged();
+        }
+    }
 
     public string CurrentDateFormatted
     {
@@ -345,20 +379,16 @@ public class MainViewModel : ViewModelBase
     public string ActiveAppText
     {
         get => _activeAppText;
-        set => SetField(ref _activeAppText, value);
+        private set
+        {
+            if (SetField(ref _activeAppText, value))
+            {
+                OnPropertyChanged(nameof(HasActiveApp));
+            }
+        }
     }
 
-    public string ActiveCategory
-    {
-        get => _activeCategory;
-        set => SetField(ref _activeCategory, value);
-    }
-
-    public string ActiveCategoryIcon
-    {
-        get => _activeCategoryIcon;
-        set => SetField(ref _activeCategoryIcon, value);
-    }
+    public bool HasActiveApp => !string.IsNullOrEmpty(ActiveAppText);
 
     public string SelectedFilter
     {
@@ -431,6 +461,9 @@ public class MainViewModel : ViewModelBase
     public ICommand RemoveDirectoryCommand { get; }
     public ICommand BrowseDirectoryCommand { get; }
     public ICommand OpenChartCommand { get; }
+    public ICommand OpenCurrentWeekCommand { get; }
+    public ICommand TogglePauseCommand { get; }
+    public ICommand CloseOverlayCommand { get; }
     public ICommand CloseChartCommand { get; }
     public ICommand SwitchChartCategoryCommand { get; }
     public ICommand PreviousWeekCommand { get; }
@@ -470,8 +503,15 @@ public class MainViewModel : ViewModelBase
         });
         BrowseDirectoryCommand = new RelayCommand(BrowseDirectoryExecute);
 
-        OpenChartCommand = new RelayCommand(async param => await OpenChartExecuteAsync(param as string));
-        CloseChartCommand = new RelayCommand(() => IsChartOpen = false);
+        OpenChartCommand = new RelayCommand(async param => await OpenChartExecuteAsync(SelectedDate, param as string));
+        OpenCurrentWeekCommand = new RelayCommand(async () => await OpenChartExecuteAsync(DateTime.Today, "Total"));
+        TogglePauseCommand = new RelayCommand(() => _trackerService.TogglePause());
+        CloseChartCommand = new RelayCommand(CloseChart);
+        CloseOverlayCommand = new RelayCommand(() =>
+        {
+            if (IsChartOpen) CloseChart();
+            else IsSettingsOpen = false;
+        });
         SwitchChartCategoryCommand = new RelayCommand(async param => await SwitchChartCategoryExecuteAsync(param as string));
         PreviousWeekCommand = new RelayCommand(async () =>
         {
@@ -510,22 +550,16 @@ public class MainViewModel : ViewModelBase
         });
         SelectDayFromChartCommand = new RelayCommand(param =>
         {
-            if (param is DayBarItem bar)
+            if (param is DayBarItem bar && bar.Date <= DateTime.Today)
             {
                 SelectedDate = bar.Date;
-                IsChartOpen = false;
-            }
-            else if (param is DateTime dt)
-            {
-                SelectedDate = dt;
-                IsChartOpen = false;
+                CloseChart();
             }
         });
 
-        _trackerService.OnActivityTracked += HandleActivityTracked;
-        _trackerService.OnTrackingStateChanged += state =>
+        _trackerService.OnSampleUpdated += () =>
         {
-            System.Windows.Application.Current?.Dispatcher.Invoke(() => IsTracking = state);
+            _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(UpdateFromTracker);
         };
     }
 
@@ -538,16 +572,13 @@ public class MainViewModel : ViewModelBase
 
     public async Task LoadDateDataAsync(DateTime date)
     {
-        if (date.Date == DateTime.Today)
-        {
-            _viewedDayData = _trackerService.CurrentDayData;
-        }
-        else
-        {
-            _viewedDayData = await _storageService.LoadDailyDataAsync(date.ToString("yyyy-MM-dd"));
-        }
+        var data = date.Date == DateTime.Today
+            ? _trackerService.GetSnapshot().Day
+            : await _storageService.LoadDailyDataAsync(date.ToString("yyyy-MM-dd"));
+        if (SelectedDate != date) return;
 
-        UpdateStatsFromData(_viewedDayData);
+        _viewedDayData = data;
+        UpdateStatsFromData(data);
         RefreshDisplayList();
     }
 
@@ -555,42 +586,76 @@ public class MainViewModel : ViewModelBase
     {
         await _trackerService.InitializeAsync();
         UpdateConfigLists();
-        StartWithWindows = StartupService.IsStartupEnabled();
-        _viewedDayData = _trackerService.CurrentDayData;
+        _startWithWindows = StartupService.IsStartupEnabled();
+        OnPropertyChanged(nameof(StartWithWindows));
         UpdateDateString();
-        UpdateStatsFromData(_viewedDayData);
-        RefreshDisplayList();
+        IsInitialized = true;
+        OnPropertyChanged(nameof(InactivityTimeoutMinutes));
+        UpdateFromTracker();
         _trackerService.Start();
-        IsTracking = _trackerService.IsTracking;
     }
 
-    private void HandleActivityTracked(ActivityRecord current, DailyTrackingData data)
+    private void UpdateFromTracker()
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        var (status, activity, day) = _trackerService.GetSnapshot();
+        TrackingState = status;
+
+        ActiveAppText = activity == null
+            ? string.Empty
+            : string.IsNullOrWhiteSpace(activity.Detail) ? activity.ProcessName : activity.Detail;
+
+        var today = DateTime.Today;
+        if (today != _lastTrackingDate)
         {
-            ActiveAppText = string.IsNullOrWhiteSpace(current.Detail) ? current.ProcessName : current.Detail;
-            ActiveCategory = current.Category;
-            ActiveCategoryIcon = current.Category switch
+            if (SelectedDate == _lastTrackingDate)
             {
-                "Juegos" => "🎮",
-                "Navegación Web" or "Navegación Web (Edge)" => "☁",
-                _ => "📁"
-            };
-
-            // Solo actualizar las tarjetas y tabla en pantalla si el usuario está visualizando HOY
-            if (IsViewingToday)
-            {
-                _viewedDayData = data;
-                UpdateStatsFromData(data);
-                RefreshDisplayList();
+                SelectedDate = today;
             }
+            _lastTrackingDate = today;
+            OnPropertyChanged(nameof(CanGoToNextDay));
+            OnPropertyChanged(nameof(DateNavigationLabel));
+        }
 
-            if (IsChartOpen && IsCurrentChartWeek)
-            {
-                _ = RefreshChartDataAsync();
-            }
-        });
+        if (IsViewingToday && day.Date == today.ToString("yyyy-MM-dd"))
+        {
+            _viewedDayData = day;
+            UpdateStatsFromData(day);
+            RefreshDisplayList();
+        }
+
+        _ = UpdateWeeklyOverviewAsync(today, day);
+        if (IsChartOpen && IsCurrentChartWeek)
+        {
+            _ = RefreshChartDataAsync();
+        }
     }
+
+    private async Task UpdateWeeklyOverviewAsync(DateTime today, DailyTrackingData day)
+    {
+        string dateKey = today.ToString("yyyy-MM-dd");
+        if (_overviewDate != dateKey)
+        {
+            _overviewDate = dateKey;
+            _overviewPastSeconds = null;
+            WeeklyOverviewAverage = "—";
+            var week = await _storageService.LoadWeekDataAsync(today);
+            if (_overviewDate != dateKey) return;
+
+            _overviewPastSeconds = StorageService.GetWeekDates(today)
+                .Where(date => date < today)
+                .Sum(date => week[date.ToString("yyyy-MM-dd")].TotalSeconds);
+            day = _trackerService.GetSnapshot().Day;
+        }
+
+        if (_overviewPastSeconds is int pastSeconds && day.Date == dateKey)
+        {
+            int daysElapsed = StorageService.GetWeekDates(today).Count(date => date <= today);
+            WeeklyOverviewAverage = FormatDailyAverage(pastSeconds + day.TotalSeconds, daysElapsed);
+        }
+    }
+
+    private static string FormatDailyAverage(int seconds, int days) =>
+        $"{DailyTrackingData.FormatSeconds(seconds / days)} / día";
 
     private void UpdateStatsFromData(DailyTrackingData data)
     {
@@ -633,7 +698,7 @@ public class MainViewModel : ViewModelBase
 
     private void RefreshDisplayList()
     {
-        var activeData = _viewedDayData ?? _trackerService.CurrentDayData;
+        var activeData = _viewedDayData ?? _trackerService.GetSnapshot().Day;
         var rawList = activeData.Activities.Values.AsEnumerable();
 
         if (SelectedFilter != "Todas")
@@ -734,12 +799,18 @@ public class MainViewModel : ViewModelBase
         UpdateConfigLists();
     }
 
-    private async Task OpenChartExecuteAsync(string? category)
+    private async Task OpenChartExecuteAsync(DateTime date, string? category)
     {
-        _chartReferenceDate = DateTime.Today;
+        _chartReferenceDate = date;
         SelectedChartCategory = string.IsNullOrWhiteSpace(category) ? "Total" : category;
-        await RefreshChartDataAsync();
         IsChartOpen = true;
+        await RefreshChartDataAsync();
+    }
+
+    private void CloseChart()
+    {
+        IsChartOpen = false;
+        _chartRequestId++;
     }
 
     private async Task SwitchChartCategoryExecuteAsync(string? category)
@@ -750,42 +821,46 @@ public class MainViewModel : ViewModelBase
 
     public async Task RefreshChartDataAsync()
     {
-        var weekDates = StorageService.GetWeekDates(_chartReferenceDate);
-        var weekData = await _storageService.LoadWeekDataAsync(_chartReferenceDate);
+        int requestId = ++_chartRequestId;
+        var referenceDate = _chartReferenceDate;
+        var category = SelectedChartCategory;
+        var today = DateTime.Today;
+        var weekDates = StorageService.GetWeekDates(referenceDate);
+        var previousWeekDates = StorageService.GetWeekDates(referenceDate.AddDays(-7));
+        var weekTask = _storageService.LoadWeekDataAsync(referenceDate);
+        var previousWeekTask = _storageService.LoadWeekDataAsync(referenceDate.AddDays(-7));
+        await Task.WhenAll(weekTask, previousWeekTask);
+        if (requestId != _chartRequestId) return;
 
-        // Inyectar datos en vivo del día actual en memoria solo si estamos viendo la semana en curso
-        if (IsCurrentChartWeek)
+        var weekData = await weekTask;
+        var previousWeekData = await previousWeekTask;
+        if (weekDates.Contains(today))
         {
-            string todayStr = DateTime.Today.ToString("yyyy-MM-dd");
-            weekData[todayStr] = _trackerService.CurrentDayData;
+            var snapshot = _trackerService.GetSnapshot().Day;
+            if (snapshot.Date == today.ToString("yyyy-MM-dd"))
+            {
+                weekData[snapshot.Date] = snapshot;
+            }
         }
 
-        switch (SelectedChartCategory)
+        switch (category)
         {
             case "Juegos":
                 ChartTitle = "Distribución Semanal: Juegos";
                 ChartIcon = "🎮";
-                ChartColor = "#2DD4BF";
-                ChartColorBg = "#132E2B";
                 break;
             case "Aplicaciones de Escritorio":
                 ChartTitle = "Distribución Semanal: Escritorio";
                 ChartIcon = "📁";
-                ChartColor = "#2DD4BF";
-                ChartColorBg = "#132E2B";
                 break;
             case "Navegación Web":
             case "Navegación Web (Edge)":
                 ChartTitle = "Distribución Semanal: Navegación Web";
                 ChartIcon = "☁";
-                ChartColor = "#2DD4BF";
-                ChartColorBg = "#132E2B";
                 break;
             default:
                 ChartTitle = "Distribución Semanal: Todo";
                 ChartIcon = "⏱";
-                ChartColor = "#2DD4BF";
-                ChartColorBg = "#132E2B";
                 break;
         }
 
@@ -799,9 +874,9 @@ public class MainViewModel : ViewModelBase
         {
             string dateStr = d.ToString("yyyy-MM-dd");
             int sec = 0;
-            if (weekData.TryGetValue(dateStr, out var daily))
+            if (d <= today && weekData.TryGetValue(dateStr, out var daily))
             {
-                sec = SelectedChartCategory switch
+                sec = category switch
                 {
                     "Juegos" => daily.TotalGamingSeconds,
                     "Aplicaciones de Escritorio" => daily.TotalDesktopSeconds,
@@ -814,11 +889,12 @@ public class MainViewModel : ViewModelBase
 
         int maxSec = daySecondsList.Count > 0 ? daySecondsList.Max() : 0;
         int scaleMax = Math.Max(3600, maxSec); // Escala mínima de 1 hora
-        const double maxBarHeightPx = 180.0;
+        const double maxBarHeightPx = 120.0;
 
         int totalWeekSec = daySecondsList.Sum();
         WeekTotalFormatted = DailyTrackingData.FormatSeconds(totalWeekSec);
-        WeekAverageFormatted = $"{DailyTrackingData.FormatSeconds(totalWeekSec / 7)} / día";
+        int elapsedDays = weekDates.Count(date => date <= today);
+        WeekAverageFormatted = FormatDailyAverage(totalWeekSec, Math.Max(1, elapsedDays));
 
         int peakSec = -1;
         string peakDayName = "Sin actividad";
@@ -826,13 +902,25 @@ public class MainViewModel : ViewModelBase
         string[] dayNames = { "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo" };
         string[] dayShortNames = { "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" };
 
-        var newBars = new List<DayBarItem>();
-        for (int i = 0; i < 7; i++)
+        // Mantener los botones de la misma semana permite conservar el foco durante las actualizaciones.
+        if (WeekBars.Count == 0 || WeekBars[0].Date != monday)
         {
-            var date = weekDates[i];
-            int sec = daySecondsList[i];
-            bool isToday = date.Date == DateTime.Today;
+            WeekBars.Clear();
+            for (int i = 0; i < weekDates.Count; i++)
+            {
+                WeekBars.Add(new DayBarItem
+                {
+                    DayName = dayNames[i],
+                    DayShort = dayShortNames[i],
+                    DateString = weekDates[i].ToString("dd MMM", culture),
+                    Date = weekDates[i]
+                });
+            }
+        }
 
+        for (int i = 0; i < WeekBars.Count; i++)
+        {
+            int sec = daySecondsList[i];
             double ratio = (double)sec / scaleMax;
             double barHeight = sec > 0 ? Math.Max(12.0, ratio * maxBarHeightPx) : 4.0;
 
@@ -842,31 +930,18 @@ public class MainViewModel : ViewModelBase
                 peakDayName = $"{dayNames[i]} ({DailyTrackingData.FormatSeconds(sec)})";
             }
 
-            newBars.Add(new DayBarItem
-            {
-                DayName = dayNames[i],
-                DayShort = dayShortNames[i],
-                DateString = date.ToString("dd MMM", culture),
-                Date = date,
-                Seconds = sec,
-                BarHeight = barHeight,
-                IsToday = isToday,
-                BarColor = ChartColor,
-                BarBgColor = isToday ? "#283045" : "#1A202E"
-            });
+            WeekBars[i].UpdateUsage(sec, barHeight, today);
         }
 
         WeekPeakDay = peakDayName;
 
         // Tendencia vs semana pasada
-        var previousWeekDates = StorageService.GetWeekDates(_chartReferenceDate.AddDays(-7));
-        var previousWeekData = await _storageService.LoadWeekDataAsync(_chartReferenceDate.AddDays(-7));
         int prevWeekTotalSec = 0;
-        foreach (var d in previousWeekDates)
+        foreach (var d in previousWeekDates.Take(elapsedDays))
         {
             if (previousWeekData.TryGetValue(d.ToString("yyyy-MM-dd"), out var daily))
             {
-                prevWeekTotalSec += SelectedChartCategory switch
+                prevWeekTotalSec += category switch
                 {
                     "Juegos" => daily.TotalGamingSeconds,
                     "Aplicaciones de Escritorio" => daily.TotalDesktopSeconds,
@@ -885,10 +960,15 @@ public class MainViewModel : ViewModelBase
                 WeekTrendFormatted = $"▲ {pct:F1}% más que sem. pasada";
                 WeekTrendColor = "#EF4444"; // Rojo (más tiempo)
             }
-            else
+            else if (pct < 0)
             {
                 WeekTrendFormatted = $"▼ {Math.Abs(pct):F1}% menos que sem. pasada";
                 WeekTrendColor = "#10B981"; // Verde (menos tiempo)
+            }
+            else
+            {
+                WeekTrendFormatted = "Sin cambios";
+                WeekTrendColor = "#9CA3AF";
             }
         }
         else
@@ -899,17 +979,17 @@ public class MainViewModel : ViewModelBase
 
         // Top 3 Apps
         var allActivities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var dateStr in weekData.Keys)
+        foreach (var date in weekDates.Take(elapsedDays))
         {
-            var daily = weekData[dateStr];
+            var daily = weekData[date.ToString("yyyy-MM-dd")];
             foreach (var act in daily.Activities.Values)
             {
                 bool match = false;
-                if (SelectedChartCategory == "Total" || SelectedChartCategory == "Todo") match = true;
-                else if (SelectedChartCategory == "Navegación Web" && (act.Category == "Navegación Web" || act.Category == "Navegación Web (Edge)")) match = true;
-                else if (act.Category == SelectedChartCategory) match = true;
+                if (category == "Total" || category == "Todo") match = true;
+                else if (category == "Navegación Web" && (act.Category == "Navegación Web" || act.Category == "Navegación Web (Edge)")) match = true;
+                else if (act.Category == category) match = true;
 
-                if (match)
+                if (match && act.SecondsSpent > 0)
                 {
                     string key = string.IsNullOrWhiteSpace(act.Detail) ? act.ProcessName : act.Detail;
                     if (!allActivities.ContainsKey(key)) allActivities[key] = 0;
@@ -927,12 +1007,6 @@ public class MainViewModel : ViewModelBase
         else
         {
             WeekTopAppsFormatted = "Sin actividad destacada";
-        }
-
-        WeekBars.Clear();
-        foreach (var b in newBars)
-        {
-            WeekBars.Add(b);
         }
 
         OnPropertyChanged(nameof(CanGoToNextWeek));

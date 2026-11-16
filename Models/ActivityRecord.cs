@@ -13,6 +13,8 @@ public class ActivityRecord
     public int SecondsSpent { get; set; }
     public DateTime LastActive { get; set; } = DateTime.Now;
 
+    internal ActivityRecord Copy() => (ActivityRecord)MemberwiseClone();
+
     [JsonIgnore]
     public string FormattedDuration
     {

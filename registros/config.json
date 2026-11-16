@@ -1,5 +1,6 @@
 {
   "TrackingIntervalSeconds": 5,
+  "InactivityTimeoutMinutes": 5,
   "GameDirectories": [
     "C:\\Program Files (x86)\\Steam\\steamapps\\common",
     "D:\\Juegos\\BattleNet",

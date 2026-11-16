@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Windows;
+using Microsoft.Win32;
 using ScreenTimeTracker.Services;
 using ScreenTimeTracker.ViewModels;
 
@@ -84,11 +85,9 @@ public partial class App : System.Windows.Application
             _trackerService.SaveCurrentDataSynchronous();
         };
 
-        // Guardar también si Windows se apaga o se cierra sesión
-        Microsoft.Win32.SystemEvents.SessionEnding += (s, ev) =>
-        {
-            _trackerService.SaveCurrentDataSynchronous();
-        };
+        SystemEvents.SessionEnding += HandleSessionEnding;
+        SystemEvents.SessionSwitch += HandleSessionSwitch;
+        SystemEvents.PowerModeChanged += HandlePowerModeChanged;
 
         _trayIconService = new TrayIconService();
         _trayIconService.Initialize();
@@ -119,6 +118,10 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        SystemEvents.SessionEnding -= HandleSessionEnding;
+        SystemEvents.SessionSwitch -= HandleSessionSwitch;
+        SystemEvents.PowerModeChanged -= HandlePowerModeChanged;
+
         _wakeUpCts?.Cancel();
         _wakeUpEvent?.Dispose();
         _wakeUpEvent = null;
@@ -146,5 +149,29 @@ public partial class App : System.Windows.Application
         }
 
         base.OnExit(e);
+    }
+
+    private void HandleSessionEnding(object sender, SessionEndingEventArgs e) =>
+        _trackerService?.SaveCurrentDataSynchronous();
+
+    private void HandleSessionSwitch(object sender, SessionSwitchEventArgs e)
+    {
+        switch (e.Reason)
+        {
+            case SessionSwitchReason.SessionLock:
+                _trackerService?.SetSessionLocked(true);
+                break;
+            case SessionSwitchReason.SessionUnlock:
+                _trackerService?.SetSessionLocked(false);
+                break;
+        }
+    }
+
+    private void HandlePowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode is PowerModes.Suspend or PowerModes.Resume)
+        {
+            _trackerService?.SetSuspended(e.Mode == PowerModes.Suspend);
+        }
     }
 }

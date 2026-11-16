@@ -9,49 +9,135 @@ namespace ScreenTimeTracker.Services;
 
 public class WindowTrackerService
 {
+    public enum TrackingStatus { Waiting, Active, Idle, Paused, Locked, Suspended }
+
+    private sealed record Sample(DateTimeOffset Time, long Timestamp, ActivityRecord? Activity, int Revision);
     private readonly StorageService _storageService;
     private readonly BrowserAutomationService _browserService;
-    private TrackerConfig _config;
-    private DailyTrackingData _currentDayData;
+    private readonly object _gate = new();
+    private readonly Dictionary<string, DailyTrackingData> _unsavedDays = new();
+    private DailyTrackingData _currentDayData = new();
     private CancellationTokenSource? _cts;
     private Task? _trackingTask;
-    private int _tickCount = 0;
+    private TrackingStatus _status;
+    private ActivityRecord? _activeActivity;
+    private bool _paused;
+    private bool _locked;
+    private bool _suspended;
+    private int _revision;
 
-    public event Action<ActivityRecord, DailyTrackingData>? OnActivityTracked;
-    public event Action<bool>? OnTrackingStateChanged;
+    public event Action? OnSampleUpdated;
 
-    public bool IsTracking => _cts != null && !_cts.IsCancellationRequested;
-    public TrackerConfig Config => _config;
-    public DailyTrackingData CurrentDayData => _currentDayData;
+    public TrackerConfig Config { get; private set; } = new();
 
     public WindowTrackerService(StorageService storageService, BrowserAutomationService browserService)
     {
         _storageService = storageService;
         _browserService = browserService;
-        _config = new TrackerConfig();
-        _currentDayData = new DailyTrackingData();
     }
 
     public async Task InitializeAsync()
     {
-        _config = await _storageService.LoadConfigAsync();
-        _currentDayData = await _storageService.LoadDailyDataAsync();
+        Config = await _storageService.LoadConfigAsync();
+        var data = await _storageService.LoadDailyDataAsync();
+        lock (_gate)
+        {
+            _currentDayData = data;
+        }
     }
 
     public void Start()
     {
-        if (IsTracking) return;
+        if (_cts != null) return;
 
         _cts = new CancellationTokenSource();
-        _trackingTask = Task.Run(() => TrackingLoopAsync(_cts.Token));
-        OnTrackingStateChanged?.Invoke(true);
+        var token = _cts.Token;
+        _trackingTask = Task.Run(() => TrackingLoopAsync(token));
+    }
+
+    public (TrackingStatus Status, ActivityRecord? Activity, DailyTrackingData Day) GetSnapshot()
+    {
+        lock (_gate)
+        {
+            var day = new DailyTrackingData { Date = _currentDayData.Date };
+            foreach (var entry in _currentDayData.Activities)
+            {
+                day.Activities.Add(entry.Key, entry.Value.Copy());
+            }
+
+            return (_status, _activeActivity?.Copy(), day);
+        }
+    }
+
+    public void TogglePause()
+    {
+        lock (_gate)
+        {
+            _paused = !_paused;
+            ResetSample();
+        }
+        OnSampleUpdated?.Invoke();
+    }
+
+    public void SetSessionLocked(bool locked)
+    {
+        lock (_gate)
+        {
+            if (_locked == locked) return;
+            _locked = locked;
+            ResetSample();
+        }
+        OnSampleUpdated?.Invoke();
+    }
+
+    public void SetSuspended(bool suspended)
+    {
+        lock (_gate)
+        {
+            if (_suspended == suspended) return;
+            _suspended = suspended;
+            ResetSample();
+        }
+        OnSampleUpdated?.Invoke();
+    }
+
+    public async Task SetInactivityTimeoutAsync(int minutes)
+    {
+        lock (_gate)
+        {
+            Config.InactivityTimeoutMinutes = minutes;
+            ResetSample();
+        }
+        OnSampleUpdated?.Invoke();
+        await _storageService.SaveConfigAsync(Config);
+    }
+
+    private TrackingStatus GetBlockedStatus()
+    {
+        if (_paused) return TrackingStatus.Paused;
+        if (_locked) return TrackingStatus.Locked;
+        if (_suspended) return TrackingStatus.Suspended;
+        return TrackingStatus.Waiting;
+    }
+
+    private void ResetSample()
+    {
+        _revision++;
+        _activeActivity = null;
+        _status = GetBlockedStatus();
     }
 
     public void SaveCurrentDataSynchronous()
     {
-        lock (_currentDayData.Activities)
+        lock (_gate)
         {
-            _storageService.SaveDailyDataSynchronous(_currentDayData);
+            foreach (var (date, day) in _unsavedDays.ToArray())
+            {
+                if (_storageService.SaveDailyDataSynchronous(day))
+                {
+                    _unsavedDays.Remove(date);
+                }
+            }
         }
     }
 
@@ -59,98 +145,163 @@ public class WindowTrackerService
     {
         if (_cts == null) return;
 
+        _cts.Cancel();
         try
         {
-            _cts.Cancel();
-            _trackingTask?.Wait(500);
+            _trackingTask?.Wait(1000);
         }
-        catch { }
-        finally
+        catch (AggregateException ex)
         {
-            _cts.Dispose();
-            _cts = null;
-            SaveCurrentDataSynchronous();
-            OnTrackingStateChanged?.Invoke(false);
+            Debug.WriteLine($"[Tracker] Error al detener: {ex.Message}");
         }
-    }
-
-    public async Task StopAsync()
-    {
-        if (_cts == null) return;
-
-        _cts.Cancel();
-        if (_trackingTask != null)
-        {
-            try
-            {
-                await _trackingTask;
-            }
-            catch (OperationCanceledException) { }
-        }
-
         _cts.Dispose();
         _cts = null;
-
         SaveCurrentDataSynchronous();
-        OnTrackingStateChanged?.Invoke(false);
     }
 
     private async Task TrackingLoopAsync(CancellationToken ct)
     {
-        int interval = Math.Max(1, _config.TrackingIntervalSeconds);
-
-        // Comprobación inicial inmediata para reflejar la ventana activa sin esperar 5s
-        try
-        {
-            TrackCurrentWindow(0);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[Tracker] Error en tick inicial: {ex.Message}");
-        }
+        int interval = Math.Max(1, Config.TrackingIntervalSeconds);
+        int tickCount = 0;
+        Sample? previous = null;
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
-
-        while (!ct.IsCancellationRequested)
+        try
         {
-            try
+            do
             {
-                await timer.WaitForNextTickAsync(ct);
-                TrackCurrentWindow(interval);
-
-                _tickCount++;
-                // Guardar en JSON cada 15 segundos (3 ticks de 5s)
-                if (_tickCount % 3 == 0)
+                if (ct.IsCancellationRequested) break;
+                try
                 {
-                    await _storageService.SaveDailyDataAsync(_currentDayData);
+                    previous = TrackSample(previous, interval, ct);
+                    if (++tickCount % 3 == 0)
+                    {
+                        SaveCurrentDataSynchronous();
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    previous = null;
+                    Debug.WriteLine($"[Tracker] Error en el muestreo: {ex.Message}");
                 }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Tracker] Error en bucle: {ex.Message}");
-            }
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
 
-    private void TrackCurrentWindow(int secondsToAdd)
+    private Sample? TrackSample(Sample? previous, int interval, CancellationToken ct)
     {
-        // Comprobar cambio de día
-        string todayStr = DateTime.Today.ToString("yyyy-MM-dd");
-        if (_currentDayData.Date != todayStr)
+        int revision;
+        int inactivityMinutes;
+        TrackingStatus status;
+        lock (_gate)
         {
-            SaveCurrentDataSynchronous();
-            _currentDayData = new DailyTrackingData { Date = todayStr };
+            revision = _revision;
+            inactivityMinutes = Config.InactivityTimeoutMinutes;
+            status = GetBlockedStatus();
         }
 
+        var time = DateTimeOffset.Now;
+        long timestamp = Stopwatch.GetTimestamp();
+        var idleTime = inactivityMinutes > 0 && status == TrackingStatus.Waiting
+            ? NativeMethods.GetIdleTime()
+            : null;
+        var idleExcess = idleTime.GetValueOrDefault() - TimeSpan.FromMinutes(Math.Max(0, inactivityMinutes));
+        ActivityRecord? activity = null;
+        if (status == TrackingStatus.Waiting)
+        {
+            if (idleExcess >= TimeSpan.Zero && idleTime.HasValue)
+            {
+                status = TrackingStatus.Idle;
+            }
+            else
+            {
+                activity = ReadForegroundActivity();
+                if (activity != null) status = TrackingStatus.Active;
+            }
+        }
+
+        lock (_gate)
+        {
+            if (ct.IsCancellationRequested || revision != _revision) return null;
+
+            // El intervalo pertenece a la actividad que estaba en primer plano al comenzar.
+            if (previous is { Activity: not null } && previous.Revision == revision &&
+                status is TrackingStatus.Active or TrackingStatus.Idle)
+            {
+                var elapsed = Stopwatch.GetElapsedTime(previous.Timestamp, timestamp);
+                var wallElapsed = time - previous.Time;
+                if (elapsed.TotalSeconds <= interval * 2.0 &&
+                    (wallElapsed - elapsed).Duration() < TimeSpan.FromSeconds(2))
+                {
+                    long activeEnd = timestamp - (long)(Math.Max(0, idleExcess.TotalSeconds) * Stopwatch.Frequency);
+                    int seconds = (int)Math.Max(0, activeEnd / Stopwatch.Frequency - previous.Timestamp / Stopwatch.Frequency);
+                    DateTime endTime = time.LocalDateTime.AddSeconds(-Math.Max(0, idleExcess.TotalSeconds));
+                    CreditActivity(previous.Activity, previous.Time.LocalDateTime, endTime, seconds);
+                }
+            }
+
+            SelectDay(time.LocalDateTime.Date);
+            _status = status;
+            _activeActivity = activity;
+        }
+
+        OnSampleUpdated?.Invoke();
+        return new Sample(time, timestamp, activity, revision);
+    }
+
+    private void CreditActivity(ActivityRecord activity, DateTime startTime, DateTime endTime, int seconds)
+    {
+        if (seconds == 0) return;
+
+        if (startTime.Date == endTime.Date)
+        {
+            AddSeconds(activity, endTime, seconds);
+            return;
+        }
+
+        int secondsToday = Math.Clamp((int)endTime.TimeOfDay.TotalSeconds, 0, seconds);
+        AddSeconds(activity, startTime.Date.AddDays(1).AddTicks(-1), seconds - secondsToday);
+        AddSeconds(activity, endTime, secondsToday);
+    }
+
+    private void AddSeconds(ActivityRecord activity, DateTime endTime, int seconds)
+    {
+        if (seconds == 0) return;
+        SelectDay(endTime.Date);
+
+        var record = activity.Copy();
+        record.LastActive = endTime;
+        record.SecondsSpent = seconds;
+        if (_currentDayData.Activities.TryGetValue(record.Id, out var existing))
+        {
+            record.SecondsSpent += existing.SecondsSpent;
+        }
+
+        _currentDayData.Activities[record.Id] = record;
+        _unsavedDays[_currentDayData.Date] = _currentDayData;
+    }
+
+    private void SelectDay(DateTime date)
+    {
+        string dateKey = date.ToString("yyyy-MM-dd");
+        if (_currentDayData.Date == dateKey) return;
+
+        // Guardar el día anterior antes de que el historial pase a leerlo desde disco.
+        SaveCurrentDataSynchronous();
+        _currentDayData = _unsavedDays.TryGetValue(dateKey, out var pending)
+            ? pending
+            : _storageService.LoadDailyData(dateKey);
+    }
+
+    private ActivityRecord? ReadForegroundActivity()
+    {
         IntPtr hWnd = NativeMethods.GetForegroundWindow();
-        if (hWnd == IntPtr.Zero) return;
+        if (hWnd == IntPtr.Zero) return null;
 
         uint processId = NativeMethods.GetActiveWindowProcessId(hWnd);
-        if (processId == 0) return;
+        if (processId == 0) return null;
 
         string processName = string.Empty;
         try
@@ -160,10 +311,10 @@ public class WindowTrackerService
         }
         catch
         {
-            return;
+            return null;
         }
 
-        if (string.IsNullOrWhiteSpace(processName)) return;
+        if (string.IsNullOrWhiteSpace(processName)) return null;
 
         string exeName = processName.ToLowerInvariant();
         if (!exeName.EndsWith(".exe"))
@@ -181,10 +332,10 @@ public class WindowTrackerService
         string recordKey;
 
         // Comprobar si es un juego evaluando la ruta completa o lista de juegos
-        if (_config.IsGame(exeFullPath, exeName))
+        if (Config.IsGame(exeFullPath, exeName))
         {
             category = "Juegos";
-            detail = _config.ExtractGameName(exeFullPath, exeName, windowTitle);
+            detail = Config.ExtractGameName(exeFullPath, exeName, windowTitle);
             recordKey = $"game:{Path.GetFileNameWithoutExtension(exeName).ToLowerInvariant()}";
         }
         else if (_browserService.IsBrowser(exeName))
@@ -200,33 +351,14 @@ public class WindowTrackerService
             recordKey = $"app:{exeName}";
         }
 
-        lock (_currentDayData.Activities)
+        return new ActivityRecord
         {
-            if (!_currentDayData.Activities.TryGetValue(recordKey, out var record))
-            {
-                record = new ActivityRecord
-                {
-                    Id = recordKey,
-                    ProcessName = exeName,
-                    WindowTitle = windowTitle,
-                    Category = category,
-                    Detail = detail,
-                    SecondsSpent = 0,
-                    LastActive = DateTime.Now
-                };
-                _currentDayData.Activities[recordKey] = record;
-            }
-
-            record.SecondsSpent += secondsToAdd;
-            record.LastActive = DateTime.Now;
-            record.WindowTitle = windowTitle;
-            if (!string.IsNullOrWhiteSpace(detail))
-            {
-                record.Detail = detail;
-            }
-
-            OnActivityTracked?.Invoke(record, _currentDayData);
-        }
+            Id = recordKey,
+            ProcessName = exeName,
+            WindowTitle = windowTitle,
+            Category = category,
+            Detail = detail
+        };
     }
 
     private static string CleanAppName(string processName, string windowTitle)
@@ -284,10 +416,10 @@ public class WindowTrackerService
         if (string.IsNullOrWhiteSpace(path)) return;
 
         string clean = path.Trim();
-        if (!_config.GameDirectories.Contains(clean))
+        if (!Config.GameDirectories.Contains(clean))
         {
-            _config.GameDirectories.Add(clean);
-            await _storageService.SaveConfigAsync(_config);
+            Config.GameDirectories.Add(clean);
+            await _storageService.SaveConfigAsync(Config);
         }
     }
 
@@ -296,9 +428,9 @@ public class WindowTrackerService
         if (string.IsNullOrWhiteSpace(path)) return;
 
         string clean = path.Trim();
-        if (_config.GameDirectories.Remove(clean))
+        if (Config.GameDirectories.Remove(clean))
         {
-            await _storageService.SaveConfigAsync(_config);
+            await _storageService.SaveConfigAsync(Config);
         }
     }
 
@@ -309,10 +441,10 @@ public class WindowTrackerService
         string clean = exeName.Trim().ToLowerInvariant();
         if (!clean.EndsWith(".exe")) clean += ".exe";
 
-        if (!_config.GameExecutables.Contains(clean))
+        if (!Config.GameExecutables.Contains(clean))
         {
-            _config.GameExecutables.Add(clean);
-            await _storageService.SaveConfigAsync(_config);
+            Config.GameExecutables.Add(clean);
+            await _storageService.SaveConfigAsync(Config);
         }
     }
 
@@ -323,9 +455,9 @@ public class WindowTrackerService
         string clean = exeName.Trim().ToLowerInvariant();
         if (!clean.EndsWith(".exe")) clean += ".exe";
 
-        if (_config.GameExecutables.Remove(clean))
+        if (Config.GameExecutables.Remove(clean))
         {
-            await _storageService.SaveConfigAsync(_config);
+            await _storageService.SaveConfigAsync(Config);
         }
     }
 }

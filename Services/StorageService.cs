@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using ScreenTimeTracker.Models;
 
@@ -12,6 +13,7 @@ public class StorageService
 {
     private readonly string _dataDirectory;
     private readonly string _configFilePath;
+    private readonly SemaphoreSlim _configSaveLock = new(1, 1);
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         WriteIndented = true,
@@ -139,27 +141,18 @@ public class StorageService
 
     public async Task SaveConfigAsync(TrackerConfig config)
     {
+        await _configSaveLock.WaitAsync();
         try
         {
-            string json = JsonSerializer.Serialize(config, _jsonOptions);
-            await File.WriteAllTextAsync(_configFilePath, json);
+            WriteJsonAtomically(_configFilePath, config);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error al guardar configuración: {ex.Message}");
         }
-    }
-
-    public void SaveConfigSynchronous(TrackerConfig config)
-    {
-        try
+        finally
         {
-            string json = JsonSerializer.Serialize(config, _jsonOptions);
-            File.WriteAllText(_configFilePath, json);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error al guardar configuración síncrono: {ex.Message}");
+            _configSaveLock.Release();
         }
     }
 
@@ -221,31 +214,35 @@ public class StorageService
         return new DailyTrackingData { Date = date };
     }
 
-    public async Task SaveDailyDataAsync(DailyTrackingData data)
+    public bool SaveDailyDataSynchronous(DailyTrackingData data)
     {
         try
         {
             string filePath = Path.Combine(_dataDirectory, $"screen_time_{data.Date}.json");
-            string json = JsonSerializer.Serialize(data, _jsonOptions);
-            await File.WriteAllTextAsync(filePath, json);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error al guardar datos diarios: {ex.Message}");
-        }
-    }
-
-    public void SaveDailyDataSynchronous(DailyTrackingData data)
-    {
-        try
-        {
-            string filePath = Path.Combine(_dataDirectory, $"screen_time_{data.Date}.json");
-            string json = JsonSerializer.Serialize(data, _jsonOptions);
-            File.WriteAllText(filePath, json);
+            WriteJsonAtomically(filePath, data);
+            return true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error al guardar datos diarios síncrono: {ex.Message}");
+            return false;
+        }
+    }
+
+    private void WriteJsonAtomically<T>(string filePath, T data)
+    {
+        string temporaryPath = filePath + ".tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(data, _jsonOptions));
+            File.Move(temporaryPath, filePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
         }
     }
 
